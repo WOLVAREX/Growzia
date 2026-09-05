@@ -19,7 +19,7 @@ export default function App() {
   const [auth,setAuth] = useState<'login'|'register'|null>(null);
   const [sidebar,setSidebar] = useState(false);
 
-  useEffect(()=>{ if(localStorage.getItem('growzia_token')) api.me().then(x=>setUser(x.user)).catch(()=>setToken('')); },[]);
+  useEffect(()=>{ const googleToken=new URLSearchParams(window.location.search).get('google_token'); if(googleToken){setToken(googleToken);window.history.replaceState({},'',window.location.pathname)} const saved=localStorage.getItem('growzia_token'); if(saved) api.me().then(x=>setUser(x.user)).catch(()=>setToken('')); },[]);
   useEffect(()=>{
     const onPopState=()=>setPage(pageFromPath());
     window.addEventListener('popstate',onPopState);

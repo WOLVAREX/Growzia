@@ -32,6 +32,10 @@ const envSchema = z.object({
   PAYSTACK_CALLBACK_URL: z.string().url("PAYSTACK_CALLBACK_URL must be a valid URL").optional(),
   PAYSTACK_CURRENCY: z.string().min(3).default("KES"),
 
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().url("GOOGLE_CALLBACK_URL must be a valid URL").optional(),
+
   DEFAULT_MARGIN_PERCENT: numberFromString(15),
   DEFAULT_CURRENCY: z.string().min(3).default("KES"),
   USD_TO_KES: numberFromString(130),

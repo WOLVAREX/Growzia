@@ -1,5 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { asyncHandler } from "../lib/asyncHandler";
 import { env } from "../lib/env";
@@ -20,6 +21,8 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const googleCallback = () => env.GOOGLE_CALLBACK_URL || `${env.FRONTEND_ORIGIN.split(",")[0].replace(/\/$/, "")}/api/auth/google/callback`;
+
 function publicUser(user: UserDoc): Record<string, unknown> {
   return {
     id: String(user._id),
@@ -35,6 +38,46 @@ function publicUser(user: UserDoc): Record<string, unknown> {
 }
 
 export const authRouter = Router();
+
+authRouter.get("/google", (_req, res) => {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    res.status(503).json({ error: "Google sign-in is not configured" });
+    return;
+  }
+  const state = randomBytes(24).toString("hex");
+  res.cookie("google_oauth_state", state, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 10 * 60 * 1000 });
+  const params = new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID, redirect_uri: googleCallback(), response_type: "code", scope: "openid email profile", state, access_type: "online", prompt: "select_account" });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+authRouter.get("/google/callback", asyncHandler(async (req, res) => {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) throw badRequest("Google sign-in is not configured");
+  const code = z.string().min(1).parse(req.query.code);
+  const state = z.string().min(1).parse(req.query.state);
+  if (!req.cookies.google_oauth_state || req.cookies.google_oauth_state !== state) throw unauthorized("Invalid Google sign-in session");
+  res.clearCookie("google_oauth_state");
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: googleCallback(), grant_type: "authorization_code" }) });
+  const tokens = await tokenResponse.json() as { access_token?: string; error?: string };
+  if (!tokenResponse.ok || !tokens.access_token) throw unauthorized("Google sign-in could not be completed");
+  const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` } });
+  const profile = await profileResponse.json() as { email?: string; email_verified?: boolean; name?: string; sub?: string };
+  if (!profileResponse.ok || !profile.email || profile.email_verified === false) throw unauthorized("Google account email is not verified");
+
+  const email = profile.email.trim().toLowerCase();
+  let user = await User.findOne({ email }).exec();
+  if (!user) {
+    const baseUsername = (profile.name || email.split("@")[0]).toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24) || "growziauser";
+    let username = baseUsername;
+    let suffix = 1;
+    while (await User.exists({ username })) username = `${baseUsername}${suffix++}`;
+    user = await User.create({ email, username, passwordHash: await bcrypt.hash(randomBytes(32).toString("hex"), 10), balanceKes: 0, isAdmin: email === env.ADMIN_EMAIL.toLowerCase() });
+  }
+  if (user.isBanned) throw unauthorized("This account is suspended");
+  const token = signAuthToken({ sub: String(user._id), email: user.email, role: user.isAdmin ? "admin" : "user" });
+  const frontend = env.FRONTEND_ORIGIN.split(",")[0].replace(/\/$/, "");
+  res.redirect(`${frontend}/dashboard?google_token=${encodeURIComponent(token)}`);
+}));
 
 const loginRateLimit = rateLimit({ windowMs: 60000, max: 10, keyPrefix: "user-login" });
 
