@@ -9,6 +9,7 @@ import { generateApiKey, signAuthToken } from "../lib/tokens";
 import { requireAuth } from "../middleware/auth";
 import { rateLimit } from "../middleware/rateLimit";
 import { User, type UserDoc } from "../models/User";
+import { emailLayout, sendEmailInBackground } from "../services/email";
 
 const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email("A valid email is required"),
@@ -72,6 +73,7 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
     let suffix = 1;
     while (await User.exists({ username })) username = `${baseUsername}${suffix++}`;
     user = await User.create({ email, username, passwordHash: await bcrypt.hash(randomBytes(32).toString("hex"), 10), balanceKes: 0, isAdmin: email === env.ADMIN_EMAIL.toLowerCase() });
+    sendEmailInBackground({ to: user.email, subject: "Welcome to Growzia", html: emailLayout("Welcome to Growzia", `<p>Hi ${user.username}, your Google account is now connected to Growzia.</p>`) });
   }
   if (user.isBanned) throw unauthorized("This account is suspended");
   const token = signAuthToken({ sub: String(user._id), email: user.email, role: user.isAdmin ? "admin" : "user" });
@@ -101,6 +103,7 @@ authRouter.post(
       balanceKes: 0,
       isAdmin: body.email === env.ADMIN_EMAIL.toLowerCase(),
     });
+    sendEmailInBackground({ to: user.email, subject: "Welcome to Growzia", html: emailLayout("Welcome to Growzia", `<p>Hi ${user.username}, your account is ready.</p><p>You can now explore services and grow your social presence.</p>`) });
 
     const token = signAuthToken({
       sub: String(user._id),

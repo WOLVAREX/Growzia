@@ -6,6 +6,7 @@ import { adminDashboardRouter } from "./dashboard";
 import { adminOrdersRouter } from "./orders";
 import { adminSettingsRouter } from "./settings";
 import { adminUsersRouter } from "./users";
+import { adminEmailRouter } from "./email";
 
 export const adminRouter = Router();
 
@@ -15,3 +16,4 @@ adminRouter.use("/orders", adminAuth, adminOrdersRouter);
 adminRouter.use("/catalog", adminAuth, adminCatalogRouter);
 adminRouter.use("/settings", adminAuth, adminSettingsRouter);
 adminRouter.use("/users", adminAuth, adminUsersRouter);
+adminRouter.use("/email", adminAuth, adminEmailRouter);

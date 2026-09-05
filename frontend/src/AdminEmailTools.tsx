@@ -1,0 +1,8 @@
+import { useState } from 'react';
+import { api } from './api';
+
+export default function AdminEmailTools({ users }: { users: any[] }) {
+  const [subject,setSubject]=useState(''); const [message,setMessage]=useState(''); const [target,setTarget]=useState('broadcast'); const [status,setStatus]=useState(''); const [busy,setBusy]=useState(false);
+  const send=async()=>{ if(!subject.trim()||!message.trim()){setStatus('Enter a subject and message.');return;} setBusy(true);setStatus(''); try { const result=target==='broadcast'?await api.broadcastEmail(subject,message):await api.emailUser(target,subject,message); setStatus(target==='broadcast'?`Sent to ${result.sent} users.`:'Email sent successfully.');setSubject('');setMessage(''); } catch(error){setStatus(error instanceof Error?error.message:'Email could not be sent.')} finally{setBusy(false)} };
+  return <div className="email-tools"><div className="email-tools-head"><div><span className="eyebrow">EMAIL CENTER</span><h3>Contact your users</h3><p className="muted">Send a broadcast or a direct message through Brevo.</p></div></div><select value={target} onChange={event=>setTarget(event.target.value)}><option value="broadcast">Broadcast to all active users</option>{users.filter(user=>!user.isBanned).map(user=><option key={user.id} value={user.id}>{user.username} · {user.email}</option>)}</select><input value={subject} onChange={event=>setSubject(event.target.value)} placeholder="Subject"/><textarea value={message} onChange={event=>setMessage(event.target.value)} placeholder="Write your message…" rows={4}/><button className="btn dark" disabled={busy} onClick={send}>{busy?'Sending…':'Send email'}</button>{status&&<p className="email-status">{status}</p>}</div>;
+}

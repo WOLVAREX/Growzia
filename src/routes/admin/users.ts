@@ -71,6 +71,13 @@ async function setBanned(id: string, isBanned: boolean): Promise<UserDoc> {
   return user;
 }
 
+async function setAdmin(id: string, isAdmin: boolean): Promise<UserDoc> {
+  if (!Types.ObjectId.isValid(id)) throw badRequest("Invalid user id");
+  const user = await User.findByIdAndUpdate(id, { $set: { isAdmin } }, { new: true }).exec();
+  if (!user) throw notFound("User not found");
+  return user;
+}
+
 adminUsersRouter.post(
   "/:id/ban",
   asyncHandler(async (req, res) => {
@@ -84,6 +91,15 @@ adminUsersRouter.post(
   asyncHandler(async (req, res) => {
     const user = await setBanned(String(req.params.id ?? ""), false);
     res.json({ user: { id: String(user._id), isBanned: user.isBanned } });
+  }),
+);
+
+adminUsersRouter.post(
+  "/:id/admin",
+  asyncHandler(async (req, res) => {
+    const isAdmin = z.object({ isAdmin: z.boolean() }).parse(req.body).isAdmin;
+    const user = await setAdmin(String(req.params.id ?? ""), isAdmin);
+    res.json({ user: { id: String(user._id), isAdmin: user.isAdmin } });
   }),
 );
 

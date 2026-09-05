@@ -36,6 +36,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().url("GOOGLE_CALLBACK_URL must be a valid URL").optional(),
 
+  BREVO_API_KEY: z.string().optional(),
+  SENDER_NAME: z.string().default("Growzia"),
+  SENDER_EMAIL: z.string().email("SENDER_EMAIL must be a valid email").optional(),
+
   DEFAULT_MARGIN_PERCENT: numberFromString(15),
   DEFAULT_CURRENCY: z.string().min(3).default("KES"),
   USD_TO_KES: numberFromString(130),

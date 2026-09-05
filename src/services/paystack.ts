@@ -3,6 +3,7 @@ import { env } from "../lib/env";
 import { badRequest, notFound } from "../lib/httpError";
 import { Payment } from "../models/Payment";
 import { User } from "../models/User";
+import { emailLayout, sendEmailInBackground } from "./email";
 type PaystackResponse = { status: boolean; message: string; data?: { authorization_url?: string; access_code?: string; id?: number; status?: string; display_text?: string } };
 function requireKey(): string { if (!env.PAYSTACK_SECRET_KEY) throw badRequest("Paystack payments are not configured yet"); return env.PAYSTACK_SECRET_KEY; }
 async function createPayment(userId: string, amountKes: number, email: string, method: "card" | "mpesa") {
@@ -22,5 +23,5 @@ export async function verifyPaystackPayment(userId: string, reference: string) {
   const payment = await Payment.findOne({ userId, reference }).exec(); if (!payment) throw notFound("Payment not found"); if (payment.status === "success") return payment;
   const verifyUrl = payment.method === "mpesa" ? `https://api.paystack.co/charge/${encodeURIComponent(reference)}` : `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`; const response = await fetch(verifyUrl, { headers: { Authorization: `Bearer ${requireKey()}` } }); const data = (await response.json()) as PaystackResponse; const successful = response.ok && data.status && data.data?.status === "success";
   if (!successful) { payment.status = data.data?.status === "failed" ? "failed" : "pending"; payment.gatewayResponse = data.message || "Payment not successful"; await payment.save(); return payment; }
-  const updated = await Payment.findOneAndUpdate({ _id: payment._id, status: "pending" }, { $set: { status: "success", paystackTransactionId: data.data?.id ? String(data.data.id) : null, creditedAt: new Date(), gatewayResponse: data.message } }, { new: true }).exec(); if (updated) await User.updateOne({ _id: userId }, { $inc: { balanceKes: payment.amountKes } }).exec(); return updated ?? (await Payment.findById(payment._id).exec());
+  const updated = await Payment.findOneAndUpdate({ _id: payment._id, status: "pending" }, { $set: { status: "success", paystackTransactionId: data.data?.id ? String(data.data.id) : null, creditedAt: new Date(), gatewayResponse: data.message } }, { new: true }).exec(); if (updated) { await User.updateOne({ _id: userId }, { $inc: { balanceKes: payment.amountKes } }).exec(); const recipient = await User.findById(userId).select("email username").lean().exec(); if (recipient) sendEmailInBackground({ to: recipient.email, subject: "Growzia payment receipt", html: emailLayout("Payment received", `<p>Hi ${recipient.username}, your wallet has been credited with <strong>KES ${payment.amountKes.toFixed(2)}</strong>.</p><p>Reference: ${payment.reference}</p>`) }); } return updated ?? (await Payment.findById(payment._id).exec());
 }
