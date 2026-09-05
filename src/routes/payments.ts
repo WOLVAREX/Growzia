@@ -1,0 +1,11 @@
+import { Router } from "express";
+import { z } from "zod";
+import { asyncHandler } from "../lib/asyncHandler";
+import { unauthorized } from "../lib/httpError";
+import { requireAuth } from "../middleware/auth";
+import { initializeMpesaPayment, initializePaystackPayment, verifyPaystackPayment } from "../services/paystack";
+const amountSchema = z.object({ amountKes: z.coerce.number().positive().max(1000000) }); const mpesaSchema = amountSchema.extend({ phone: z.string().trim().regex(/^\+2547\d{8}$/, "Use a Kenyan number like +254712345678") }); const referenceSchema = z.object({ reference: z.string().trim().min(1).max(120) });
+export const paymentsRouter = Router(); paymentsRouter.use(requireAuth);
+paymentsRouter.post("/paystack/initialize", asyncHandler(async (req, res) => { const user = req.user; if (!user) throw unauthorized("Authentication required"); const body = amountSchema.parse(req.body); res.status(201).json(await initializePaystackPayment(String(user._id), body.amountKes, user.email)); }));
+paymentsRouter.post("/mpesa/initialize", asyncHandler(async (req, res) => { const user = req.user; if (!user) throw unauthorized("Authentication required"); const body = mpesaSchema.parse(req.body); res.status(201).json(await initializeMpesaPayment(String(user._id), body.amountKes, user.email, body.phone)); }));
+paymentsRouter.post("/paystack/verify", asyncHandler(async (req, res) => { const user = req.user; if (!user) throw unauthorized("Authentication required"); const body = referenceSchema.parse(req.body); const payment = await verifyPaystackPayment(String(user._id), body.reference); res.json({ payment: payment ? { reference: payment.reference, amountKes: payment.amountKes, status: payment.status, creditedAt: payment.creditedAt } : null }); }));

@@ -1,0 +1,26 @@
+import { randomUUID } from "node:crypto";
+import { env } from "../lib/env";
+import { badRequest, notFound } from "../lib/httpError";
+import { Payment } from "../models/Payment";
+import { User } from "../models/User";
+type PaystackResponse = { status: boolean; message: string; data?: { authorization_url?: string; access_code?: string; id?: number; status?: string; display_text?: string } };
+function requireKey(): string { if (!env.PAYSTACK_SECRET_KEY) throw badRequest("Paystack payments are not configured yet"); return env.PAYSTACK_SECRET_KEY; }
+async function createPayment(userId: string, amountKes: number, email: string, method: "card" | "mpesa") {
+  const amount = Math.round(amountKes * 100); if (!Number.isFinite(amount) || amount < 100) throw badRequest("Minimum wallet funding amount is KES 1");
+  const reference = `gw_${randomUUID().replaceAll("-", "")}`; const payment = await Payment.create({ userId, reference, amountKes, currency: env.PAYSTACK_CURRENCY, method, status: "pending" });
+  try { const response = await fetch("https://api.paystack.co/transaction/initialize", { method: "POST", headers: { Authorization: `Bearer ${requireKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({ amount: String(amount), email, currency: env.PAYSTACK_CURRENCY, channels: ["card"], reference, ...(env.PAYSTACK_CALLBACK_URL ? { callback_url: env.PAYSTACK_CALLBACK_URL } : {}), metadata: JSON.stringify({ paymentId: String(payment._id), userId }) }) }); const data = (await response.json()) as PaystackResponse; if (!response.ok || !data.status || !data.data?.authorization_url || !data.data.access_code) throw new Error(data.message || "Paystack initialization failed"); return { reference, authorizationUrl: data.data.authorization_url, accessCode: data.data.access_code, amountKes }; }
+  catch (error) { payment.status = "failed"; payment.gatewayResponse = error instanceof Error ? error.message : "Paystack initialization failed"; await payment.save(); if (error instanceof Error && error.message === "Paystack payments are not configured yet") throw error; throw badRequest("Unable to initialize payment"); }
+}
+export async function initializePaystackPayment(userId: string, amountKes: number, email: string) { return createPayment(userId, amountKes, email, "card"); }
+export async function initializeMpesaPayment(userId: string, amountKes: number, email: string, phone: string) {
+  const amount = Math.round(amountKes * 100); if (!Number.isFinite(amount) || amount < 100) throw badRequest("Minimum wallet funding amount is KES 1");
+  const reference = `gw_${randomUUID().replaceAll("-", "")}`; const payment = await Payment.create({ userId, reference, amountKes, currency: env.PAYSTACK_CURRENCY, method: "mpesa", status: "pending" });
+  try { const response = await fetch("https://api.paystack.co/charge", { method: "POST", headers: { Authorization: `Bearer ${requireKey()}`, "Content-Type": "application/json" }, body: JSON.stringify({ amount: String(amount), email, currency: env.PAYSTACK_CURRENCY, reference, mobile_money: { phone, provider: "mpesa" }, metadata: { paymentId: String(payment._id), userId } }) }); const data = (await response.json()) as PaystackResponse; if (!response.ok || !data.status) throw new Error(data.message || "M-Pesa charge failed"); return { reference, status: data.data?.status || "pay_offline", displayText: data.data?.display_text || data.message, amountKes }; }
+  catch (error) { payment.status = "failed"; payment.gatewayResponse = error instanceof Error ? error.message : "M-Pesa charge failed"; await payment.save(); if (error instanceof Error && error.message === "Paystack payments are not configured yet") throw error; throw badRequest("Unable to send M-Pesa prompt"); }
+}
+export async function verifyPaystackPayment(userId: string, reference: string) {
+  const payment = await Payment.findOne({ userId, reference }).exec(); if (!payment) throw notFound("Payment not found"); if (payment.status === "success") return payment;
+  const verifyUrl = payment.method === "mpesa" ? `https://api.paystack.co/charge/${encodeURIComponent(reference)}` : `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`; const response = await fetch(verifyUrl, { headers: { Authorization: `Bearer ${requireKey()}` } }); const data = (await response.json()) as PaystackResponse; const successful = response.ok && data.status && data.data?.status === "success";
+  if (!successful) { payment.status = data.data?.status === "failed" ? "failed" : "pending"; payment.gatewayResponse = data.message || "Payment not successful"; await payment.save(); return payment; }
+  const updated = await Payment.findOneAndUpdate({ _id: payment._id, status: "pending" }, { $set: { status: "success", paystackTransactionId: data.data?.id ? String(data.data.id) : null, creditedAt: new Date(), gatewayResponse: data.message } }, { new: true }).exec(); if (updated) await User.updateOne({ _id: userId }, { $inc: { balanceKes: payment.amountKes } }).exec(); return updated ?? (await Payment.findById(payment._id).exec());
+}
