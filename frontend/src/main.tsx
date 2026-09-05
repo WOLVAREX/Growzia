@@ -60,24 +60,6 @@ const updateOrderEstimate = () => {
 };
 document.addEventListener('input', (event) => { if ((event.target as HTMLElement).closest('.modal input[type="number"]')) updateOrderEstimate(); });
 
-let providerDisabled = new Set<string>();
-const loadProviderSettings = () => api.providerSettings().then((settings) => { providerDisabled = new Set(settings.providerServices || []); enhanceProviderControls(); }).catch(() => {});
-const enhanceProviderControls = () => {
-  document.querySelectorAll<HTMLTableElement>('.panel table').forEach((table) => {
-    const headers = Array.from(table.querySelectorAll('th')).map((header) => header.textContent?.toLowerCase() || '');
-    if (!headers.some((header) => header.includes('cheapgains')) || table.dataset.controlsReady === 'true') return;
-    table.dataset.controlsReady = 'true';
-    table.querySelectorAll('tbody tr').forEach((row) => {
-      const cells = row.querySelectorAll('td'); const key = cells[0]?.querySelector('small')?.textContent?.trim(); if (!key) return;
-      [
-        ['bwm', headers.findIndex((header) => header.includes('bwm'))],
-        ['cheapgains', headers.findIndex((header) => header.includes('cheapgains'))],
-      ].forEach(([provider, index]) => { const cell = cells[Number(index)]; if (!cell || Number(index) < 0 || cell.querySelector('.provider-control')) return; const button = document.createElement('button'); button.className = 'mini-btn provider-control'; const id = `${provider}:${key}`; const update = () => { button.textContent = providerDisabled.has(id) ? 'Enable' : 'Disable'; }; update(); button.addEventListener('click', async () => { button.disabled = true; const next = new Set(providerDisabled); next.has(id) ? next.delete(id) : next.add(id); try { await api.setProviderSettings(Array.from(next)); providerDisabled = next; update(); } finally { button.disabled = false; } }); cell.appendChild(button); });
-    });
-  });
-};
-void loadProviderSettings();
-
 class AppErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) { return { error }; }

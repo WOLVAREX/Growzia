@@ -28,7 +28,7 @@ export default function AdminCatalogEnhanced({ rows, refresh }: { rows: CatalogR
     const next = new Set(disabled);
     next.has(id) ? next.delete(id) : next.add(id);
     setSaving(id); setMessage('');
-    try { const result = await api.setProviderSettings(Array.from(next)); setDisabled(new Set(result.providerServices || next)); refresh(); }
+    try { const result = await api.setProviderSettings(Array.from(next)); setDisabled(new Set(result.providerServices || next)); setMessage(`${disabled.has(id) ? 'Provider service enabled' : 'Provider service disabled'}. Catalog refresh started.`); refresh(); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update provider service.'); }
     finally { setSaving(null); }
   };

@@ -42,8 +42,10 @@ adminSettingsRouter.get("/disabled-provider-services", asyncHandler(async (_req,
 adminSettingsRouter.post("/disabled-provider-services", asyncHandler(async (req, res) => {
   const body = z.object({ providerServices: z.array(z.string().trim().min(1)).max(10000) }).parse(req.body);
   const providerServices = await setDisabledProviderServices(body.providerServices);
-  await syncCatalog({ triggeredBy: "admin" });
-  res.json({ providerServices });
+  // A provider toggle should acknowledge immediately. The provider sync can take
+  // several seconds and must not make the admin control look frozen.
+  void syncCatalog({ triggeredBy: "admin" }).catch(() => undefined);
+  res.json({ providerServices, syncing: true });
 }));
 
 adminSettingsRouter.get(
