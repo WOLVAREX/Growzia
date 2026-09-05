@@ -6,6 +6,7 @@ let token = localStorage.getItem('growzia_token') || '';
 export const setToken = (next:string) => { token = next; next ? localStorage.setItem('growzia_token', next) : localStorage.removeItem('growzia_token'); };
 async function request<T>(path:string, options:RequestInit={}) { const headers = new Headers(options.headers); headers.set('Content-Type','application/json'); if (token) headers.set('Authorization', `Bearer ${token}`); const res = await fetch(`${base}${path}`, {...options, headers, credentials:'include'}); const data = await res.json().catch(()=>({})); if (!res.ok) throw new Error(data.error || 'Something went wrong'); return data as T; }
 export const api = {
+  publicStats: () => request<{users:number}>('/public/stats'),
   login: (body:object) => request<{token:string;user:User}>('/auth/login',{method:'POST',body:JSON.stringify(body)}),
   register: (body:object) => request<{token:string;user:User}>('/auth/register',{method:'POST',body:JSON.stringify(body)}),
   me: () => request<{user:User}>('/auth/me'),

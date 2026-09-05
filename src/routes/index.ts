@@ -7,6 +7,7 @@ import { catalogRouter } from "./boost/catalog";
 import { ordersRouter } from "./boost/orders";
 import { publicApiV2Router } from "./publicApiV2";
 import { paymentsRouter } from "./payments";
+import { User } from "../models/User";
 
 export const apiRouter = Router();
 
@@ -16,6 +17,14 @@ apiRouter.get("/health", (_req, res) => {
     database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
     time: new Date().toISOString(),
   });
+});
+
+apiRouter.get("/public/stats", async (_req, res, next) => {
+  try {
+    res.json({ users: await User.countDocuments({ isBanned: false }).exec() });
+  } catch (error) {
+    next(error);
+  }
 });
 
 apiRouter.use("/auth", authRouter);
