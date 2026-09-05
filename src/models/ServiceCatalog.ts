@@ -12,6 +12,7 @@ export interface ServiceCatalogDoc extends Document {
   providerServiceId: string;
   baseKesPer1000: number;
   sellKesPer1000: number;
+  sellPriceOverrideKesPer1000?: number;
   min: number;
   max: number;
   isRegionVariant: boolean;
@@ -31,6 +32,7 @@ const serviceCatalogSchema = new Schema<ServiceCatalogDoc>(
     providerServiceId: { type: String, required: true, select: false },
     baseKesPer1000: { type: Number, required: true, select: false },
     sellKesPer1000: { type: Number, required: true },
+    sellPriceOverrideKesPer1000: { type: Number, select: false },
     min: { type: Number, required: true, default: 1 },
     max: { type: Number, required: true, default: 1 },
     isRegionVariant: { type: Boolean, required: true, default: false },

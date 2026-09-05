@@ -42,7 +42,6 @@ const updateLinkPlaceholder = () => {
   const placeholder = heading.includes('discord') ? 'https://discord.com/invite/your-server' : heading.includes('facebook') ? 'https://facebook.com/your-page' : heading.includes('youtube') ? 'https://youtube.com/@yourchannel' : heading.includes('tiktok') ? 'https://tiktok.com/@yourusername' : heading.includes('twitter') || heading.includes(' x ') ? 'https://x.com/yourusername' : heading.includes('telegram') ? 'https://t.me/yourchannel' : 'https://your-profile-or-post-link.com';
   document.querySelectorAll<HTMLInputElement>('.modal input[type="url"]').forEach((input) => { input.placeholder = placeholder; });
 };
-new MutationObserver(updateLinkPlaceholder).observe(document.body, { childList: true, subtree: true });
 
 const updateOrderEstimate = () => {
   const modal = document.querySelector<HTMLElement>('.modal');
@@ -59,7 +58,6 @@ const updateOrderEstimate = () => {
   if (!estimate) { estimate = document.createElement('div'); estimate.className = 'order-total'; form.insertBefore(estimate, form.querySelector('.error') || form.querySelector('button.btn')); }
   estimate.innerHTML = `<span>Estimated total</span><strong>KES ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
 };
-new MutationObserver(updateOrderEstimate).observe(document.body, { childList: true, subtree: true });
 document.addEventListener('input', (event) => { if ((event.target as HTMLElement).closest('.modal input[type="number"]')) updateOrderEstimate(); });
 
 let providerDisabled = new Set<string>();
@@ -78,7 +76,6 @@ const enhanceProviderControls = () => {
     });
   });
 };
-new MutationObserver(enhanceProviderControls).observe(document.body, { childList: true, subtree: true });
 void loadProviderSettings();
 
 class AppErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {

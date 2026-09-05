@@ -127,6 +127,11 @@ async function upsertWinners(
   marginPercent: number,
 ): Promise<{ mergedCount: number; removedCount: number }> {
   if (winners.length > 0) {
+    const existing = await ServiceCatalog.find({ canonicalKey: { $in: winners.map((winner) => winner.canonicalKey) } })
+      .select("canonicalKey +sellPriceOverrideKesPer1000")
+      .lean()
+      .exec();
+    const overrides = new Map(existing.map((doc) => [doc.canonicalKey, doc.sellPriceOverrideKesPer1000]));
     const operations = winners.map((winner) => ({
       updateOne: {
         filter: { canonicalKey: winner.canonicalKey },
@@ -139,7 +144,7 @@ async function upsertWinners(
             providerCode: winner.providerCode,
             providerServiceId: winner.providerServiceId,
             baseKesPer1000: winner.baseKesPer1000,
-            sellKesPer1000: sellPrice(winner.baseKesPer1000, marginPercent),
+            sellKesPer1000: overrides.get(winner.canonicalKey) ?? sellPrice(winner.baseKesPer1000, marginPercent),
             min: winner.min,
             max: winner.max,
             isRegionVariant: winner.isRegionVariant,
@@ -313,7 +318,7 @@ export async function repriceCatalog(marginPercent: number): Promise<number> {
   const operations = docs.map((doc) => ({
     updateOne: {
       filter: { _id: doc._id },
-      update: { $set: { sellKesPer1000: sellPrice(doc.baseKesPer1000, marginPercent) } },
+      update: { $set: { sellKesPer1000: doc.sellPriceOverrideKesPer1000 ?? sellPrice(doc.baseKesPer1000, marginPercent) } },
     },
   }));
   await ServiceCatalog.bulkWrite(operations, { ordered: false });

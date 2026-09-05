@@ -27,6 +27,15 @@ const SERVICE_TYPES: readonly string[] = [
   "Plays",
   "Reactions",
   "Reviews",
+  "Status",
+  "Channels",
+  "Channel",
+  "Groups",
+  "Group",
+  "Stories",
+  "Story",
+  "Polls",
+  "Saves",
 ];
 
 const REGION_KEYWORDS: readonly string[] = [

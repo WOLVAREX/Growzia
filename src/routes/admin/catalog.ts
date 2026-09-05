@@ -10,7 +10,7 @@ import { getCatalogMeta, syncCatalog } from "../../services/catalogSync";
 const rawQuerySchema = z.object({
   q: z.string().trim().max(120).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(5000).default(200),
 });
 
 export const adminCatalogRouter = Router();
@@ -68,7 +68,18 @@ adminCatalogRouter.get(
 
     const latest = await ProviderRawService.findOne({}).sort({ syncedAt: -1 }).select("syncedAt").lean().exec();
     if (!latest) {
-      res.json({ page: query.page, limit: query.limit, total: 0, syncedAt: null, rows: [] });
+      const catalog = await ServiceCatalog.find({}).select("canonicalKey platformId serviceType name sellKesPer1000 +providerCode +providerServiceId +baseKesPer1000 min max").sort({ platformId: 1, name: 1 }).lean().exec();
+      const rows = catalog
+        .filter((doc) => search === "" || `${doc.name} ${doc.platformId} ${doc.serviceType} ${doc.canonicalKey}`.toLowerCase().includes(search))
+        .map((doc) => ({
+          canonicalKey: doc.canonicalKey,
+          platformId: doc.platformId,
+          serviceType: doc.serviceType,
+          bwm: null,
+          cheapgains: null,
+          winner: { providerCode: doc.providerCode, providerServiceId: doc.providerServiceId, baseKesPer1000: doc.baseKesPer1000, sellKesPer1000: doc.sellKesPer1000, name: doc.name },
+        }));
+      res.json({ page: query.page, limit: query.limit, total: rows.length, syncedAt: null, rows: rows.slice(skip, skip + query.limit) });
       return;
     }
 
@@ -85,8 +96,8 @@ adminCatalogRouter.get(
         canonicalKey: string;
         platformId: string;
         serviceType: string;
-        bwm: { name: string; baseKesPer1000: number; rawRate: number; rawCurrency: string } | null;
-        cheapgains: { name: string; baseKesPer1000: number; rawRate: number; rawCurrency: string } | null;
+        bwm: { name: string; providerServiceId: string; baseKesPer1000: number; rawRate: number; rawCurrency: string; min: number; max: number } | null;
+        cheapgains: { name: string; providerServiceId: string; baseKesPer1000: number; rawRate: number; rawCurrency: string; min: number; max: number } | null;
       }
     >();
 
@@ -101,9 +112,12 @@ adminCatalogRouter.get(
       };
       const entry = {
         name: doc.name,
+        providerServiceId: doc.providerServiceId,
         baseKesPer1000: doc.baseKesPer1000,
         rawRate: doc.rawRate,
         rawCurrency: doc.rawCurrency,
+        min: doc.min,
+        max: doc.max,
       };
       if (doc.providerCode === "bwm") {
         if (!existing.bwm || entry.baseKesPer1000 < existing.bwm.baseKesPer1000) existing.bwm = entry;
@@ -129,6 +143,7 @@ adminCatalogRouter.get(
                 providerServiceId: winner.providerServiceId,
                 baseKesPer1000: winner.baseKesPer1000,
                 sellKesPer1000: winner.sellKesPer1000,
+                name: winner.name,
               }
             : null,
         };
@@ -141,6 +156,24 @@ adminCatalogRouter.get(
       syncedAt: latest.syncedAt,
       rows: rows.slice(skip, skip + query.limit),
     });
+  }),
+);
+
+adminCatalogRouter.patch(
+  "/:canonicalKey/price",
+  asyncHandler(async (req, res) => {
+    const canonicalKey = z.string().trim().min(3).max(240).parse(req.params.canonicalKey);
+    const body = z.object({ sellKesPer1000: z.coerce.number().finite().positive().max(10_000_000) }).parse(req.body);
+    const service = await ServiceCatalog.findOneAndUpdate(
+      { canonicalKey },
+      { $set: { sellKesPer1000: Math.round(body.sellKesPer1000 * 100) / 100, sellPriceOverrideKesPer1000: Math.round(body.sellKesPer1000 * 100) / 100 } },
+      { new: true, runValidators: true },
+    ).select("canonicalKey sellKesPer1000").lean().exec();
+    if (!service) {
+      res.status(404).json({ error: "Service not found" });
+      return;
+    }
+    res.json({ service });
   }),
 );
 
