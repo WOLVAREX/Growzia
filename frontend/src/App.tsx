@@ -8,14 +8,37 @@ import AdminCatalogEnhanced from './AdminCatalogEnhanced';
 type Page = 'dashboard'|'services'|'orders'|'wallet'|'transactions'|'settings'|'admin';
 const money = (n:number) => `KES ${Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const initials = (s:string) => s.slice(0,2).toUpperCase();
+const pageFromPath = ():Page => { const value = window.location.pathname.replace(/^\/+|\/+$/g,'').split('/')[0] as Page; return ['dashboard','services','orders','wallet','transactions','settings','admin'].includes(value) ? value : 'dashboard'; };
+const pathForPage = (value:Page) => `/${value}`;
+const pageMeta:Record<Page,{title:string;description:string}> = { dashboard:{title:'Dashboard',description:'Your Growzia social growth workspace.'}, services:{title:'Services',description:'Browse Growzia social media marketing services.'}, orders:{title:'Orders',description:'Track your Growzia orders and campaigns.'}, wallet:{title:'Wallet',description:'Fund and manage your Growzia wallet.'}, transactions:{title:'Transactions',description:'Review your Growzia wallet transactions.'}, settings:{title:'Settings',description:'Manage your Growzia account settings.'}, admin:{title:'Admin Console',description:'Manage Growzia users, services, pricing, and orders.'} };
+function SiteFooter(){return <footer className="site-footer">Built by <strong>Xhclinton</strong> and <strong>Silent Wolf</strong></footer>}
 
 export default function App() {
-  const [user,setUser] = useState<User|null>(null); const [page,setPage] = useState<Page>('dashboard'); const [auth,setAuth] = useState<'login'|'register'|null>(null); const [sidebar,setSidebar] = useState(false);
+  const [user,setUser] = useState<User|null>(null);
+  const [page,setPage] = useState<Page>(pageFromPath);
+  const [auth,setAuth] = useState<'login'|'register'|null>(null);
+  const [sidebar,setSidebar] = useState(false);
+
   useEffect(()=>{ if(localStorage.getItem('growzia_token')) api.me().then(x=>setUser(x.user)).catch(()=>setToken('')); },[]);
-  if (!user && !auth) return <Landing onAuth={setAuth}/>;
-  if (!user && auth) return <Auth mode={auth} onBack={()=>setAuth(null)} onSwitch={()=>setAuth(auth==='login'?'register':'login')} onDone={u=>{setUser(u);setAuth(null)}}/>;
+  useEffect(()=>{
+    const onPopState=()=>setPage(pageFromPath());
+    window.addEventListener('popstate',onPopState);
+    return ()=>window.removeEventListener('popstate',onPopState);
+  },[]);
+  useEffect(()=>{
+    const meta=pageMeta[page]; /*
+    document.title=user&&meta ? \`\${meta.title} | Growzia\` : 'Growzia — Grow your social presence.';
+    */
+    document.title = meta ? meta.title + ' | Growzia' : 'Growzia';
+    const description=document.querySelector('meta[name="description"]');
+    if(description && meta) description.setAttribute('content',meta.description);
+  },[page,user]);
+
+  const navigate=(next:Page)=>{ setPage(next); setSidebar(false); if(window.location.pathname!==pathForPage(next)) window.history.pushState({page:next},'',pathForPage(next)); };
+  if (!user && !auth) return <><Landing onAuth={setAuth}/><SiteFooter/></>;
+  if (!user && auth) return <Auth mode={auth} onBack={()=>setAuth(null)} onSwitch={()=>setAuth(auth==='login'?'register':'login')} onDone={u=>{setUser(u);setAuth(null);navigate('dashboard')}}/>;
   const admin = !!user?.isAdmin;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} admin={admin} open={sidebar} close={()=>setSidebar(false)} onLogout={()=>{setToken('');setUser(null)}}/><main className="main"><header className="topbar"><button className="icon-button mobile-only" onClick={()=>setSidebar(true)}><Menu size={20}/></button><div><span className="eyebrow">{admin?'ADMIN CONSOLE':'GROWZIA WORKSPACE'}</span><h1>{page === 'admin'?'Admin overview':page[0].toUpperCase()+page.slice(1)}</h1></div><div className="top-actions"><button className="icon-button"><Search size={18}/></button><div className="avatar">{initials(user?.username||'G')}</div></div></header>{page==='admin'&&admin?<Admin/>:<Customer page={page} user={user!} setPage={setPage}/>}</main></div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={navigate} admin={admin} open={sidebar} close={()=>setSidebar(false)} onLogout={()=>{setToken('');setUser(null);navigate('dashboard')}}/><main className="main"><header className="topbar"><button className="icon-button mobile-only" onClick={()=>setSidebar(true)}><Menu size={20}/></button><div><span className="eyebrow">{admin?'ADMIN CONSOLE':'GROWZIA WORKSPACE'}</span><h1>{page === 'admin'?'Admin overview':page[0].toUpperCase()+page.slice(1)}</h1></div><div className="top-actions"><button className="icon-button"><Search size={18}/></button><div className="avatar">{initials(user?.username||'G')}</div></div></header>{page==='admin'&&admin?<Admin/>:<Customer page={page} user={user!} setPage={navigate}/>}<SiteFooter/></main></div>;
 }
 
 function Landing({onAuth}:{onAuth:(m:'login'|'register')=>void}) { return <div className="landing"><nav className="landing-nav"><div className="brand"><span className="brand-mark">G</span> growzia</div><div className="nav-links"><a href="#services">Services</a><a href="#how">How it works</a><a href="#about">About</a></div><div className="nav-cta"><button className="btn ghost" onClick={()=>onAuth('login')}>Sign in</button><button className="btn dark" onClick={()=>onAuth('register')}>Get started <ArrowUpRight size={16}/></button></div></nav><section className="hero"><div className="hero-copy"><span className="pill"><Sparkles size={14}/> The smarter SMM panel</span><h1>Grow your social<br/><em>presence.</em> Simply.</h1><p>Powerful social media marketing services, a clean experience, and pricing that puts your growth first.</p><div className="hero-actions"><button className="btn dark large" onClick={()=>onAuth('register')}>Start growing <ArrowUpRight size={17}/></button><button className="text-btn" onClick={()=>onAuth('login')}>I already have an account <ChevronRight size={16}/></button></div><div className="trust"><div className="avatars"><span>J</span><span>M</span><span>A</span><span>+</span></div><span>Trusted by creators & brands<br/><strong>everywhere</strong></span></div></div><div className="hero-art"><div className="orbit o1"/><div className="orbit o2"/><div className="signal-card"><Activity size={19}/><div><b>Growth signal</b><small>+28.4% this month</small></div><TrendingUp size={27}/></div><div className="metric-card"><small>Reach generated</small><strong>1,284,620</strong><div className="mini-bars"><i/><i/><i/><i/><i/><i/><i/></div></div><div className="circle-core"><Globe2 size={58}/><span>G</span></div></div></section><section className="feature-strip" id="services"><Feature icon={<Gauge/>} title="Clear pricing" text="No surprises. Ever."/><Feature icon={<Layers3/>} title="Every platform" text="One panel, all growth."/><Feature icon={<ShieldCheck/>} title="Built securely" text="Your account, protected."/></section></div> }
