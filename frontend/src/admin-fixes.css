@@ -16,8 +16,9 @@
 .services-subnav button:hover, .services-subnav button.active { background: #f0f0ed; color: #111; font-weight: 700; }
 .services-subnav button small { margin-left: auto; color: #999; }
 .services-subnav .platform { width: 24px; height: 24px; margin: 0; font-size: 9px; }
+.mobile-service-menu { display: none; }
 .services-main .page-intro { margin-bottom: 28px; }
-@media(max-width:767px) { .services-layout { grid-template-columns: 1fr; gap: 18px; } .services-subnav { position: static; display: flex; gap: 5px; overflow-x: auto; padding: 7px; } .services-subnav .side-label { display: none; } .services-subnav button { width: auto; white-space: nowrap; } }
+@media(max-width:767px) { .services-layout { grid-template-columns: 1fr; gap: 18px; } .services-subnav { display: none; } .mobile-service-menu { display: block; margin: -24px 0 20px; padding: 10px 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); } .mobile-service-menu button { width: 100%; display: flex; align-items: center; gap: 9px; padding: 9px 12px; text-align: left; color: #777; font-size: 12px; border-radius: 7px; } .mobile-service-menu button:hover { background: #f0f0ed; color: #111; } .mobile-service-menu .platform { width: 24px; height: 24px; margin: 0; font-size: 9px; } }
 .theme-dark .services-subnav { background: #191917; border-color: #2c2c29; }
 .theme-dark .services-subnav button { color: #aaa; }
 .theme-dark .services-subnav button:hover, .theme-dark .services-subnav button.active { background: #30302c; color: #fff; }
