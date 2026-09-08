@@ -51,6 +51,7 @@ vi.mock("../src/services/settings", () => ({
   getMaintenanceMode: async () => false,
   getDisabledServices: async () => [],
   getDisabledProviderServices: async () => [],
+  getDisabledPlatforms: async () => [],
 }));
 
 function makeClient(code: "bwm" | "cheapgains", services: RawProviderService[]): ProviderClient {

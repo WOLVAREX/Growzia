@@ -13,3 +13,50 @@
   background: #20201e;
   color: #f4f4f1;
 }
+
+.theme-dark .email-tools,
+.theme-dark .email-tools h3,
+.theme-dark .platform-controls,
+.theme-dark .platform-controls h3,
+.theme-dark .admin-settings h3,
+.theme-dark .admin-catalog-panel h3 {
+  color: #f4f4f1;
+}
+
+.theme-dark .email-tools label,
+.theme-dark .email-tools small,
+.theme-dark .platform-controls small {
+  color: #c8c8c2;
+}
+
+.theme-dark .admin-tabs {
+  background: #191917;
+  border: 1px solid #2c2c29;
+  border-radius: 12px;
+  padding: 8px;
+  flex-direction: column;
+  width: 180px;
+  align-items: stretch;
+}
+
+.theme-dark .admin-tabs button {
+  color: #b4b4ae;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+}
+
+.theme-dark .admin-tabs button.selected {
+  background: #30302c;
+  color: #fff;
+}
+
+.theme-dark .platform-toggle {
+  color: #f4f4f1;
+  background: #20201e;
+  border-color: #3b3b37;
+}
+
+.theme-dark .platform-toggle small {
+  color: #a5a59f;
+}

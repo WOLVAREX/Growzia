@@ -9,6 +9,7 @@ export const SETTING_KEYS = {
   orderProcessingHours: "orderProcessingHours",
   providerAlertNumbers: "providerAlertNumbers",
   providerAlertSenderId: "providerAlertSenderId",
+  disabledPlatforms: "disabledPlatforms",
 } as const;
 
 interface CacheEntry {
@@ -84,6 +85,17 @@ export async function setDisabledProviderServices(keys: string[]): Promise<strin
   return unique;
 }
 
+export async function getDisabledPlatforms(): Promise<string[]> {
+  const value = await readSetting(SETTING_KEYS.disabledPlatforms);
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+export async function setDisabledPlatforms(platforms: string[]): Promise<string[]> {
+  const unique = Array.from(new Set(platforms.map((platform) => String(platform).trim().toLowerCase()).filter(Boolean)));
+  await writeSetting(SETTING_KEYS.disabledPlatforms, unique);
+  return unique;
+}
+
 export async function getOrderProcessingHours(): Promise<number> {
   const value = await readSetting(SETTING_KEYS.orderProcessingHours);
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 24;
@@ -109,7 +121,8 @@ export async function setProviderAlertNumbers(numbers: string[]): Promise<string
 
 export async function getProviderAlertSenderId(): Promise<string> {
   const value = await readSetting(SETTING_KEYS.providerAlertSenderId);
-  return typeof value === "string" && value.trim() ? value.trim() : env.NENA_SENDER_ID;
+  const candidate = typeof value === "string" ? value.trim() : "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate) ? candidate : env.NENA_SENDER_ID ?? "";
 }
 
 export async function setProviderAlertSenderId(senderId: string): Promise<string> {

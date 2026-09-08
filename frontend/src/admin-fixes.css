@@ -1,0 +1,12 @@
+.platform-controls { margin-top: 14px; }
+.platform-toggle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 20px; }
+.platform-toggle { display: flex; align-items: center; gap: 10px; text-align: left; padding: 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: inherit; }
+.platform-toggle > span:nth-child(2) { flex: 1; }
+.platform-toggle b, .platform-toggle small { display: block; }
+.platform-toggle small { color: #888; font-size: 10px; margin-top: 3px; }
+.platform-toggle .platform { flex: 0 0 32px; width: 32px; height: 32px; margin: 0; font-size: 12px; }
+.platform-toggle.hidden { opacity: .65; }
+.admin-tabs { flex-direction: column; width: 180px; align-items: stretch; }
+.admin-tabs button { text-align: left; border-bottom: 0; border-left: 2px solid transparent; }
+.admin-tabs button.selected { border-left-color: #111; }
+@media(max-width:640px) { .admin-tabs { width: 100%; flex-direction: row; overflow-x: auto; } .admin-tabs button { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; } .admin-tabs button.selected { border-bottom-color: #111; } }

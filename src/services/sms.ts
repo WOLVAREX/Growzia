@@ -16,7 +16,8 @@ export async function sendNenaSms(recipient: string, senderId: string, message: 
     let detail = "The SMS provider rejected the request";
     try {
       const parsed = JSON.parse(raw) as { message?: unknown; error?: unknown; detail?: unknown };
-      const providerMessage = parsed.message ?? parsed.error ?? parsed.detail;
+      const nestedCode = parsed.error && typeof parsed.error === "object" ? (parsed.error as { code?: unknown }).code : undefined;
+      const providerMessage = parsed.message ?? parsed.detail ?? nestedCode ?? (typeof parsed.error === "string" ? parsed.error : undefined);
       if (typeof providerMessage === "string" && providerMessage.trim()) detail = providerMessage.trim().slice(0, 240);
     } catch {
       if (raw.trim()) detail = raw.trim().replace(/\s+/g, " ").slice(0, 240);

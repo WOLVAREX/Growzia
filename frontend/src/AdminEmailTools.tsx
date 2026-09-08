@@ -8,7 +8,7 @@ export default function AdminEmailTools({ users }: { users: any[] }) {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [numbers, setNumbers] = useState('');
-  const [senderId, setSenderId] = useState('NENA');
+  const [senderId, setSenderId] = useState('');
   const [hours, setHours] = useState(24);
   const [opsStatus, setOpsStatus] = useState('');
   const [testNumber, setTestNumber] = useState('');
@@ -17,7 +17,7 @@ export default function AdminEmailTools({ users }: { users: any[] }) {
   useEffect(() => {
     void Promise.all([api.providerAlerts(), api.processingWindow()]).then(([alerts, window]) => {
       setNumbers((alerts.numbers || []).join(', '));
-      setSenderId(alerts.senderId || 'NENA');
+      setSenderId(alerts.senderId || '');
       setHours(window.hours ?? 24);
     }).catch(() => setOpsStatus('Could not load operations settings.'));
   }, []);
@@ -52,7 +52,7 @@ export default function AdminEmailTools({ users }: { users: any[] }) {
   return <div className="email-tools">
     <div className="email-tools-head"><div><span className="eyebrow">OPERATIONS CENTER</span><h3>Provider alerts and customer timing</h3><p className="muted">Queued orders are explained to customers. Low-provider-balance alerts are sent only after an order reaches the provider flow.</p></div></div>
     <label>Processing window (hours)<input type="number" min="0" max="168" value={hours} onChange={event => setHours(Number(event.target.value))}/></label>
-    <label>Alert sender ID<input value={senderId} onChange={event => setSenderId(event.target.value)} placeholder="NENA"/></label>
+    <label>Nena sender UUID<input value={senderId} onChange={event => setSenderId(event.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/><small>Nena requires the sender UUID, not the display name (for example, not “NENA”).</small></label>
     <label>Admin alert numbers<input value={numbers} onChange={event => setNumbers(event.target.value)} placeholder="2547..., 2547..."/><small>Separate multiple numbers with commas.</small></label>
     <button className="btn dark" onClick={saveOperations}>Save operations settings</button>{opsStatus && <p className="email-status">{opsStatus}</p>}
     <label>Test recipient<input value={testNumber} onChange={event => setTestNumber(event.target.value)} placeholder="254712345678"/></label><button className="btn outline" onClick={testSms}>Send test SMS</button>{testStatus && <p className="email-status">{testStatus}</p>}

@@ -51,7 +51,7 @@ const envSchema = z.object({
   CATALOG_CACHE_TTL_SECONDS: numberFromString(300),
   NENA_API_KEY: z.string().optional(),
   NENA_API_URL: z.string().url("NENA_API_URL must be a valid URL").default("https://nenasolutions.co.ke/v1/api/sms/send"),
-  NENA_SENDER_ID: z.string().min(1).default("NENA"),
+  NENA_SENDER_ID: z.string().uuid().optional(),
   PROVIDER_LOW_BALANCE_THRESHOLD_KES: numberFromString(500),
 });
 

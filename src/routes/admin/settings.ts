@@ -18,6 +18,8 @@ import {
   setProviderAlertNumbers,
   getProviderAlertSenderId,
   setProviderAlertSenderId,
+  getDisabledPlatforms,
+  setDisabledPlatforms,
 } from "../../services/settings";
 import { sendNenaSms } from "../../services/sms";
 
@@ -60,14 +62,27 @@ adminSettingsRouter.get("/provider-alerts", asyncHandler(async (_req, res) => {
 }));
 
 adminSettingsRouter.post("/provider-alerts", asyncHandler(async (req, res) => {
-  const body = z.object({ numbers: z.array(z.string().trim().min(7)).max(20), senderId: z.string().trim().min(1).max(20) }).parse(req.body);
+  const body = z.object({ numbers: z.array(z.string().trim().min(7)).max(20), senderId: z.string().trim().uuid("Nena sender ID must be a UUID") }).parse(req.body);
   res.json({ numbers: await setProviderAlertNumbers(body.numbers), senderId: await setProviderAlertSenderId(body.senderId), configured: Boolean(process.env.NENA_API_KEY) });
 }));
 
 adminSettingsRouter.post("/provider-alerts/test", asyncHandler(async (req, res) => {
-  const body = z.object({ recipient: z.string().trim().min(7).max(32), senderId: z.string().trim().min(1).max(20), message: z.string().trim().min(1).max(320).default("Growzia SMS test: provider alerts are configured successfully.") }).parse(req.body);
+  const body = z.object({ recipient: z.string().trim().min(7).max(32), senderId: z.string().trim().uuid("Nena sender ID must be a UUID"), message: z.string().trim().min(1).max(320).default("Growzia SMS test: provider alerts are configured successfully.") }).parse(req.body);
   await sendNenaSms(body.recipient, body.senderId, body.message);
   res.json({ sent: true, recipient: body.recipient, senderId: body.senderId });
+}));
+
+adminSettingsRouter.get("/platforms", asyncHandler(async (_req, res) => {
+  const [catalog, disabled] = await Promise.all([ServiceCatalog.find({}).select("platformId").lean().exec(), getDisabledPlatforms()]);
+  const platforms = Array.from(new Set(catalog.map((item) => item.platformId.toLowerCase()))).sort();
+  res.json({ platforms, disabledPlatforms: disabled });
+}));
+
+adminSettingsRouter.post("/platforms", asyncHandler(async (req, res) => {
+  const body = z.object({ disabledPlatforms: z.array(z.string().trim().min(1).max(80)).max(100) }).parse(req.body);
+  const disabledPlatforms = await setDisabledPlatforms(body.disabledPlatforms);
+  invalidateCatalogCache();
+  res.json({ disabledPlatforms });
 }));
 
 adminSettingsRouter.get("/processing-window", asyncHandler(async (_req, res) => {

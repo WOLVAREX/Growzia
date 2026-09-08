@@ -5,6 +5,7 @@ import { unauthorized } from "../lib/httpError";
 import { requireAuth } from "../middleware/auth";
 import { initializeMpesaPayment, initializePaystackPayment, verifyPaystackPayment } from "../services/paystack";
 import { Payment } from "../models/Payment";
+import { Order } from "../models/Order";
 const amountSchema = z.object({ amountKes: z.coerce.number().positive().max(1000000) }); const mpesaSchema = amountSchema.extend({ phone: z.string().trim().regex(/^\+2547\d{8}$/, "Use a Kenyan number like +254712345678") }); const referenceSchema = z.object({ reference: z.string().trim().min(1).max(120) });
 export const paymentsRouter = Router(); paymentsRouter.use(requireAuth);
 paymentsRouter.post("/paystack/initialize", asyncHandler(async (req, res) => { const user = req.user; if (!user) throw unauthorized("Authentication required"); const body = amountSchema.parse(req.body); res.status(201).json(await initializePaystackPayment(String(user._id), body.amountKes, user.email)); }));
@@ -13,6 +14,14 @@ paymentsRouter.post("/paystack/verify", asyncHandler(async (req, res) => { const
 paymentsRouter.get("/history", asyncHandler(async (req, res) => {
   const user = req.user;
   if (!user) throw unauthorized("Authentication required");
-  const payments = await Payment.find({ userId: user._id }).sort({ createdAt: -1 }).limit(100).lean().exec();
-  res.json({ payments: payments.map(payment => ({ reference: payment.reference, amountKes: payment.amountKes, currency: payment.currency, method: payment.method, status: payment.status, createdAt: payment.createdAt.toISOString(), creditedAt: payment.creditedAt?.toISOString() ?? null })) });
+  const [payments, orders] = await Promise.all([
+    Payment.find({ userId: user._id }).sort({ createdAt: -1 }).limit(100).lean().exec(),
+    Order.find({ userId: user._id }).sort({ createdAt: -1 }).limit(100).lean().exec(),
+  ]);
+  res.json({
+    transactions: [
+      ...payments.map(payment => ({ id: `payment:${payment.reference}`, description: "Wallet funding", reference: payment.reference, type: "credit", amountKes: payment.amountKes, currency: payment.currency, status: payment.status, method: payment.method, createdAt: payment.createdAt.toISOString() })),
+      ...orders.map(order => ({ id: `order:${String(order._id)}`, description: order.serviceName, reference: String(order._id), type: "debit", amountKes: order.costKes, currency: order.costCurrency, status: order.status, method: "order", createdAt: order.createdAt.toISOString() })),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200),
+  });
 }));

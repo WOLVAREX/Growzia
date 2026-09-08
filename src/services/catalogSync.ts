@@ -5,7 +5,7 @@ import { ServiceCatalog } from "../models/ServiceCatalog";
 import { SyncLog } from "../models/SyncLog";
 import { buildCanonicalKey, detectIsRegionVariant, detectPlatformId, detectRegion, detectServiceType } from "./classify";
 import { sellPrice } from "./pricing";
-import { getDisabledProviderServices, getMarginPercent } from "./settings";
+import { getDisabledPlatforms, getDisabledProviderServices, getMarginPercent } from "./settings";
 import { bwmClient } from "./providers/bwm";
 import { cheapGainsClient } from "./providers/cheapgains";
 import type { ProviderClient, RawProviderService } from "./providers/types";
@@ -163,6 +163,7 @@ async function upsertWinners(
 }
 
 async function loadCatalogFromDb(): Promise<CatalogCache> {
+  const disabledPlatforms = new Set(await getDisabledPlatforms());
   const docs = await ServiceCatalog.find({ isDisabled: false })
     .select("canonicalKey platformId serviceType name category sellKesPer1000 min max isRegionVariant updatedAt")
     .sort({ platformId: 1, serviceType: 1, name: 1 })
@@ -172,6 +173,7 @@ async function loadCatalogFromDb(): Promise<CatalogCache> {
   let latest = 0;
   const entries: PublicCatalogEntry[] = [];
   for (const doc of docs) {
+    if (disabledPlatforms.has(doc.platformId.toLowerCase())) continue;
     const updated = doc.updatedAt instanceof Date ? doc.updatedAt.getTime() : 0;
     if (updated > latest) latest = updated;
     entries.push({
