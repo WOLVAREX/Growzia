@@ -23,6 +23,23 @@
   color: #f4f4f1;
 }
 
+.theme-dark .email-tools {
+  background: #191917 !important;
+  border-color: #2c2c29 !important;
+}
+
+.theme-dark .email-tools label {
+  color: #f4f4f1;
+}
+
+.theme-dark .email-tools .eyebrow {
+  color: #aaa9a2;
+}
+
+.theme-dark .email-tools .email-status {
+  color: #72c486;
+}
+
 .theme-dark .email-tools label,
 .theme-dark .email-tools small,
 .theme-dark .platform-controls small {
