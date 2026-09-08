@@ -11,12 +11,13 @@ import { User } from "../models/User";
 
 export const apiRouter = Router();
 
-apiRouter.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    database: pool.totalCount > 0 ? "connected" : "disconnected",
-    time: new Date().toISOString(),
-  });
+apiRouter.get("/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", database: "connected", time: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ status: "degraded", database: "disconnected", time: new Date().toISOString() });
+  }
 });
 
 apiRouter.get("/public/stats", async (_req, res, next) => {
