@@ -1,0 +1,15 @@
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #969690 !important;
+  opacity: 1;
+}
+
+.theme-dark select {
+  color: #f4f4f1;
+  caret-color: #f4f4f1;
+}
+
+.theme-dark select option {
+  background: #20201e;
+  color: #f4f4f1;
+}

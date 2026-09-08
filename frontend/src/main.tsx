@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 import './theme.css';
 import './payment-theme.css';
+import './dark-theme-fixes.css';
 import App from './App';
 import { api } from './api';
 
