@@ -152,8 +152,8 @@ adminCatalogRouter.get(
             ? {
                 providerCode: winner.providerCode,
                 providerServiceId: winner.providerServiceId,
-                baseKesPer1000: winner.baseKesPer1000,
-                sellKesPer1000: winner.sellKesPer1000,
+baseKesPer1000: numberValue(winner.baseKesPer1000),
+                sellKesPer1000: numberValue(winner.sellKesPer1000),
                 commissionKesPer1000: rounded(numberValue(winner.sellKesPer1000) - numberValue(winner.baseKesPer1000)),
                 commissionPercent: numberValue(winner.baseKesPer1000) > 0
                   ? rounded(((numberValue(winner.sellKesPer1000) - numberValue(winner.baseKesPer1000)) / numberValue(winner.baseKesPer1000)) * 100)
