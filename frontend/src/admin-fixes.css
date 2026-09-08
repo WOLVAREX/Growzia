@@ -10,3 +10,14 @@
 .admin-tabs button { text-align: left; border-bottom: 0; border-left: 2px solid transparent; }
 .admin-tabs button.selected { border-left-color: #111; }
 @media(max-width:640px) { .admin-tabs { width: 100%; flex-direction: row; overflow-x: auto; } .admin-tabs button { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; } .admin-tabs button.selected { border-bottom-color: #111; } }
+.services-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 28px; align-items: start; }
+.services-subnav { position: sticky; top: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.services-subnav button { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; padding: 10px; border-radius: 8px; color: #777; font-size: 11px; text-transform: capitalize; }
+.services-subnav button:hover, .services-subnav button.active { background: #f0f0ed; color: #111; font-weight: 700; }
+.services-subnav button small { margin-left: auto; color: #999; }
+.services-subnav .platform { width: 24px; height: 24px; margin: 0; font-size: 9px; }
+.services-main .page-intro { margin-bottom: 28px; }
+@media(max-width:767px) { .services-layout { grid-template-columns: 1fr; gap: 18px; } .services-subnav { position: static; display: flex; gap: 5px; overflow-x: auto; padding: 7px; } .services-subnav .side-label { display: none; } .services-subnav button { width: auto; white-space: nowrap; } }
+.theme-dark .services-subnav { background: #191917; border-color: #2c2c29; }
+.theme-dark .services-subnav button { color: #aaa; }
+.theme-dark .services-subnav button:hover, .theme-dark .services-subnav button.active { background: #30302c; color: #fff; }

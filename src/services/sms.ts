@@ -11,6 +11,13 @@ export interface NenaSenderId {
   isUsedForAll: boolean;
 }
 
+function normalizeKenyanRecipient(value: string): string {
+  const compact = value.trim().replace(/[\s()-]/g, "");
+  if (/^0[17]\d{8}$/.test(compact)) return `254${compact.slice(1)}`;
+  if (/^\+254[17]\d{8}$/.test(compact)) return compact.slice(1);
+  return compact;
+}
+
 export async function listNenaSenderIds(): Promise<NenaSenderId[]> {
   if (!env.NENA_API_KEY) return [];
   try {
@@ -32,10 +39,11 @@ export async function listNenaSenderIds(): Promise<NenaSenderId[]> {
 
 export async function sendNenaSms(recipient: string, senderId: string, message: string): Promise<void> {
   if (!env.NENA_API_KEY) throw serviceUnavailable("Nena SMS is not configured on the server");
+  const normalizedRecipient = normalizeKenyanRecipient(recipient);
   const response = await fetch(env.NENA_API_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${env.NENA_API_KEY}`, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ sender_id: senderId, recipient, phone: recipient, message }),
+    body: JSON.stringify({ sender_id: senderId, recipient: normalizedRecipient, phone: normalizedRecipient, message }),
     signal: AbortSignal.timeout(env.PROVIDER_TIMEOUT_MS),
   });
   if (!response.ok) {
@@ -49,7 +57,8 @@ export async function sendNenaSms(recipient: string, senderId: string, message: 
     } catch {
       if (raw.trim()) detail = raw.trim().replace(/\s+/g, " ").slice(0, 240);
     }
-    throw serviceUnavailable(`Nena SMS failed (${response.status}): ${detail}`);
+    const suffix = detail === "recipient_invalid" ? "The number was rejected by Nena. Verify that it is an active Kenyan mobile number." : detail;
+    throw serviceUnavailable(`Nena SMS failed (${response.status}): ${suffix}`);
   }
 }
 
