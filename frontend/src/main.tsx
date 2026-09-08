@@ -8,6 +8,15 @@ import './admin-fixes.css';
 import App from './App';
 import { api } from './api';
 
+document.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
+  if (!button || button.disabled) return;
+  button.classList.remove('is-pressed');
+  void button.offsetWidth;
+  button.classList.add('is-pressed');
+  window.setTimeout(() => button.classList.remove('is-pressed'), 420);
+}, true);
+
 const themeButton = document.createElement('button');
 themeButton.className = 'theme-toggle';
 themeButton.setAttribute('aria-label', 'Toggle dark mode');

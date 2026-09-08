@@ -21,6 +21,8 @@ const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("A valid email is required"),
   password: z.string().min(1, "Password is required"),
 });
+const usernameUpdateSchema = z.object({ username: z.string().trim().min(3).max(32) });
+const passwordUpdateSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8).max(128) });
 
 const googleCallback = () => env.GOOGLE_CALLBACK_URL || `${env.FRONTEND_ORIGIN.split(",")[0].replace(/\/$/, "")}/api/auth/google/callback`;
 const googleExchanges = new Map<string, { token: string; expiresAt: number }>();
@@ -160,6 +162,27 @@ authRouter.get(
     res.json({ user: publicUser(user) });
   }),
 );
+
+authRouter.patch("/profile", requireAuth, asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) throw unauthorized("Authentication required");
+  const body = usernameUpdateSchema.parse(req.body);
+  const existing = await User.findOne({ username: body.username, _id: { $ne: user._id } }).exec();
+  if (existing) throw badRequest("That username is already in use");
+  user.username = body.username;
+  await user.save();
+  res.json({ user: publicUser(user) });
+}));
+
+authRouter.patch("/password", requireAuth, asyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) throw unauthorized("Authentication required");
+  const body = passwordUpdateSchema.parse(req.body);
+  if (!(await bcrypt.compare(body.currentPassword, user.passwordHash))) throw badRequest("Current password is incorrect");
+  user.passwordHash = await bcrypt.hash(body.newPassword, 10);
+  await user.save();
+  res.json({ changed: true });
+}));
 
 authRouter.post(
   "/api-key",

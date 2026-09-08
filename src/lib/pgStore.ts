@@ -31,7 +31,7 @@ function matches(data: Record<string, unknown>, filter: PgFilter): boolean {
   for (const [key, expected] of Object.entries(filter)) {
     if (key === "$or") continue;
     const actual = getValue(data, key);
-    if (expected && typeof expected === "object" && !Array.isArray(expected)) {
+    if (expected && typeof expected === "object" && !Array.isArray(expected) && Object.keys(expected as Record<string, unknown>).some(key => key.startsWith("$"))) {
       const operators = expected as Record<string, unknown>;
       if ("$in" in operators && !(operators.$in as unknown[]).some(item => equal(actual, item))) return false;
       if ("$nin" in operators && (operators.$nin as unknown[]).some(item => equal(actual, item))) return false;
@@ -79,6 +79,13 @@ export class PgModel<T extends PgRecord> {
   findOne(filter: PgFilter = {}): Query<PgEntity<T> | null> { return new Query(async () => (await this.rows(filter))[0] as unknown as PgEntity<T> ?? null); }
   findById(id: unknown): Query<PgEntity<T> | null> { return this.findOne({ _id: id }); }
   async create(input: Partial<T>): Promise<PgEntity<T>> { const id = input._id ? String(input._id) : new Types.ObjectId().toHexString(); const now = new Date(); const data = { ...input, _id: id, createdAt: input.createdAt ?? now, updatedAt: input.updatedAt ?? now } as Record<string, unknown>; await pool.query("INSERT INTO growzia_documents(collection,id,data,created_at,updated_at) VALUES($1,$2,$3,$4,$5)", [this.collection, id, plain(data), data.createdAt, data.updatedAt]); return this.doc(data) as unknown as PgEntity<T>; }
+  async debitBalanceIfSufficient(id: unknown, amount: number): Promise<PgEntity<T> | null> {
+    const result = await pool.query<{ data: Record<string, unknown> }>(
+      "UPDATE growzia_documents SET data=jsonb_set(data, '{balanceKes}', to_jsonb(((data->>'balanceKes')::numeric - $3)), true), updated_at=now() WHERE collection=$1 AND id=$2 AND COALESCE((data->>'balanceKes')::numeric, 0) >= $3 RETURNING data",
+      [this.collection, String(id), amount],
+    );
+    return result.rows[0] ? this.doc(result.rows[0].data) as unknown as PgEntity<T> : null;
+  }
   async insertMany(inputs: Array<Partial<T>>, _options?: unknown): Promise<PgEntity<T>[]> { const output: PgEntity<T>[] = []; for (const input of inputs) output.push(await this.create(input)); return output; }
   countDocuments(filter: PgFilter = {}): Query<number> { return new Query(async () => (await this.rows(filter)).length); }
   exists(filter: PgFilter): Query<boolean> { return new Query(async () => (await this.rows(filter)).length > 0); }

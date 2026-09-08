@@ -52,6 +52,7 @@ describe("classification", () => {
   it("detects platforms", () => {
     expect(detectPlatformId("Instagram Followers", "Instagram Services")).toBe("instagram");
     expect(detectPlatformId("Tik Tok Likes", "Boosting")).toBe("tiktok");
+    expect(detectPlatformId("WhatsApp Channel Followers", "YouTube Services")).toBe("whatsapp");
     expect(detectPlatformId("Unknown Widget", "General")).toBe("other");
   });
 

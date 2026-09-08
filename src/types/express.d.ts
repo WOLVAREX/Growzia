@@ -6,6 +6,7 @@ declare global {
       user?: UserDoc;
       viaApiKey?: boolean;
       isAdmin?: boolean;
+      rawBody?: Buffer;
     }
   }
 }

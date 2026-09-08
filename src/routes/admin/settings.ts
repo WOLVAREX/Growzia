@@ -59,7 +59,9 @@ adminSettingsRouter.post("/disabled-provider-services", asyncHandler(async (req,
 
 adminSettingsRouter.get("/provider-alerts", asyncHandler(async (_req, res) => {
   const senderIds = (await listNenaSenderIds()).filter((sender) => sender.isActive);
-  res.json({ numbers: await getProviderAlertNumbers(), senderId: await getProviderAlertSenderId(), senderIds, configured: Boolean(process.env.NENA_API_KEY) });
+  const configuredSenderId = await getProviderAlertSenderId();
+  const senderId = configuredSenderId || senderIds[0]?.id || "";
+  res.json({ numbers: await getProviderAlertNumbers(), senderId, senderIds, configured: Boolean(process.env.NENA_API_KEY) });
 }));
 
 adminSettingsRouter.post("/provider-alerts", asyncHandler(async (req, res) => {

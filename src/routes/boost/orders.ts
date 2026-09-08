@@ -8,6 +8,7 @@ import { rateLimit } from "../../middleware/rateLimit";
 import { sessionOrApiKey } from "../../middleware/sessionOrApiKey";
 import { getUserOrders, placeOrder, refreshOrderStatus, toPublicOrder } from "../../services/orders";
 import { Order } from "../../models/Order";
+import { User } from "../../models/User";
 import { isSupportedCurrency } from "../../services/pricing";
 
 const orderSchema = z.object({
@@ -42,7 +43,8 @@ ordersRouter.post(
     const body = orderSchema.parse(req.body);
 
     const order = await placeOrder(String(user._id), body.serviceId, body.link, body.quantity, body.currency);
-    res.status(201).json({ order: toPublicOrder(order), balanceKes: user.balanceKes - order.costKes });
+    const refreshedUser = await User.findById(user._id).select("balanceKes").lean().exec();
+    res.status(201).json({ order: toPublicOrder(order), balanceKes: refreshedUser?.balanceKes ?? null });
   }),
 );
 

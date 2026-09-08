@@ -1,19 +1,33 @@
-const PLATFORM_KEYWORDS: ReadonlyArray<readonly [string, readonly string[]]> = [
-  ["instagram", ["instagram", "insta ", " ig ", "igtv"]],
-  ["tiktok", ["tiktok", "tik tok", "douyin"]],
-  ["youtube", ["youtube", "yt ", "shorts"]],
-  ["facebook", ["facebook", " fb ", "fanpage"]],
-  ["x", ["twitter", "x.com", " x "]],
-  ["telegram", ["telegram", " tg "]],
-  ["whatsapp", ["whatsapp", "whats app"]],
-  ["spotify", ["spotify"]],
-  ["soundcloud", ["soundcloud", "sound cloud"]],
-  ["linkedin", ["linkedin", "linked in"]],
-  ["snapchat", ["snapchat", "snap chat"]],
-  ["twitch", ["twitch"]],
-  ["pinterest", ["pinterest"]],
-  ["discord", ["discord"]],
-  ["threads", ["threads"]],
+// Two-tier matching: "strong" keywords are full platform names or unambiguous tokens
+// (safe to match anywhere in the text). "weak" keywords are short abbreviations
+// ("yt", "fb", "tg", "ig") that are only trusted as a last-resort fallback, and only once
+// every platform's strong keywords have already failed to match — otherwise a service like
+// "WhatsApp Channel Followers" could get misclassified as YouTube just because some other
+// platform's loose abbreviation happens to appear first in priority order.
+interface PlatformRule {
+  platform: string;
+  strong: readonly RegExp[];
+  weak: readonly RegExp[];
+}
+
+const PLATFORM_RULES: readonly PlatformRule[] = [
+  { platform: "instagram", strong: [/instagram/i, /igtv/i], weak: [/\big\b/i] },
+  { platform: "tiktok", strong: [/tiktok/i, /tik ?tok/i, /douyin/i], weak: [] },
+  { platform: "youtube", strong: [/youtube/i], weak: [/\byt\b/i, /\bshorts\b/i] },
+  { platform: "facebook", strong: [/facebook/i, /fanpage/i], weak: [/\bfb\b/i] },
+  // Deliberately no bare "x" fallback: a single letter is too likely to appear in
+  // unrelated text (e.g. "1000 x followers", "x2 bonus") to trust as a platform signal.
+  { platform: "x", strong: [/twitter/i, /x\.com/i], weak: [] },
+  { platform: "telegram", strong: [/telegram/i], weak: [/\btg\b/i] },
+  { platform: "whatsapp", strong: [/whatsapp/i, /whats ?app/i], weak: [] },
+  { platform: "spotify", strong: [/spotify/i], weak: [] },
+  { platform: "soundcloud", strong: [/soundcloud/i, /sound ?cloud/i], weak: [] },
+  { platform: "linkedin", strong: [/linkedin/i, /linked ?in/i], weak: [] },
+  { platform: "snapchat", strong: [/snapchat/i, /snap ?chat/i], weak: [] },
+  { platform: "twitch", strong: [/twitch/i], weak: [] },
+  { platform: "pinterest", strong: [/pinterest/i], weak: [] },
+  { platform: "discord", strong: [/discord/i], weak: [] },
+  { platform: "threads", strong: [/threads/i], weak: [] },
 ];
 
 const SERVICE_TYPES: readonly string[] = [
@@ -99,13 +113,24 @@ const REGION_KEYWORDS: readonly string[] = [
 const FLAG_PATTERN = /[\u{1F1E6}-\u{1F1FF}]{2}/u;
 
 function haystack(name: string, category: string): string {
-  return ` ${String(category ?? "")} ${String(name ?? "")} `.toLowerCase().replace(/\s+/g, " ");
+  return ` ${String(name ?? "")} ${String(category ?? "")} `.toLowerCase().replace(/\s+/g, " ");
 }
 
+function detectStrongPlatform(text: string): string | null {
+  const match = PLATFORM_RULES.find((rule) => rule.strong.some((pattern) => pattern.test(text)));
+  return match?.platform ?? null;
+}
 export function detectPlatformId(name: string, category: string): string {
+  // Prefer the service name. Provider categories are often broad or stale and
+  // may contain another platform name (for example, a WhatsApp service under a
+  // generic/YouTube category). Only use the category when the name is silent.
+  const nameMatch = detectStrongPlatform(String(name ?? "").toLowerCase());
+  if (nameMatch) return nameMatch;
+  const categoryMatch = detectStrongPlatform(String(category ?? "").toLowerCase());
+  if (categoryMatch) return categoryMatch;
   const text = haystack(name, category);
-  const found = PLATFORM_KEYWORDS.find(([, keywords]) => keywords.some((keyword) => text.includes(keyword)));
-  return found ? found[0] : "other";
+  const weakMatch = PLATFORM_RULES.find((rule) => rule.weak.some((pattern) => pattern.test(text)));
+  return weakMatch ? weakMatch.platform : "other";
 }
 
 export function detectServiceType(name: string, category: string): string {

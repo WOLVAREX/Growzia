@@ -76,15 +76,17 @@ export async function sendProviderAlert(message: string): Promise<void> {
   if (!env.NENA_API_KEY) return;
   const numbers = await getProviderAlertNumbers();
   if (numbers.length === 0) return;
-  const senderId = await getProviderAlertSenderId();
+  const configuredSenderId = await getProviderAlertSenderId();
+  const senderId = configuredSenderId || (await listNenaSenderIds()).find((sender) => sender.isActive)?.id || "";
   if (!senderId) {
     logger.warn("Provider alert SMS skipped: no active Nena sender UUID configured");
     return;
   }
-  for (const recipient of numbers) {
-    try { await sendNenaSms(recipient, senderId, message); }
-    catch (error) { logger.warn(`Provider alert SMS failed for ${recipient}: ${errorMessage(error)}`); }
-  }
+  const results = await Promise.allSettled(numbers.map((recipient) => sendNenaSms(recipient, senderId, message)));
+  results.forEach((result, index) => {
+    if (result.status === "rejected") logger.warn(`Provider alert SMS failed for ${numbers[index]}: ${errorMessage(result.reason)}`);
+  });
+  logger.info(`Provider alert SMS fan-out attempted for ${numbers.length} recipient(s)`);
 }
 
 export function sendProviderAlertInBackground(message: string): void {

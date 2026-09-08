@@ -11,3 +11,7 @@ function revive(data: Record<string, unknown>): UserDoc {
 }
 
 export const User = new PgModel<UserDoc>("users", revive);
+
+export async function debitUserBalanceIfSufficient(userId: Types.ObjectId, amountKes: number): Promise<UserDoc | null> {
+  return User.debitBalanceIfSufficient(userId, amountKes) as Promise<UserDoc | null>;
+}

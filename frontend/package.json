@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host localhost",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/generate-share-previews.mjs",
     "preview": "vite preview --host localhost"
   },
   "dependencies": {

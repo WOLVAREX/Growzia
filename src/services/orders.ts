@@ -4,7 +4,7 @@ import { badRequest, notFound, serviceUnavailable } from "../lib/httpError";
 import { errorMessage, logger } from "../lib/logger";
 import { Order, type OrderDoc, type OrderStatus } from "../models/Order";
 import { ServiceCatalog } from "../models/ServiceCatalog";
-import { User } from "../models/User";
+import { debitUserBalanceIfSufficient, User } from "../models/User";
 import { convertFromKes, quantityCostKes, resolveCurrency } from "./pricing";
 import { bwmClient } from "./providers/bwm";
 import { cheapGainsClient } from "./providers/cheapgains";
@@ -72,17 +72,25 @@ function isLowBalanceError(error: unknown): boolean {
 
 async function submitPendingOrder(order: OrderDoc): Promise<OrderDoc> {
   const client = clientFor(order.providerCode);
+  const service = await ServiceCatalog.findById(order.serviceCatalogId).select("+baseKesPer1000").exec();
+  if (!service) throw serviceUnavailable("Service pricing is unavailable");
+  const providerCostKes = quantityCostKes(Number(service.baseKesPer1000), order.quantity);
   order.providerAttemptedAt = new Date();
   await order.save();
   if (client.getBalanceKes) {
     const balance = await client.getBalanceKes();
-    if (balance.balanceKes < env.PROVIDER_LOW_BALANCE_THRESHOLD_KES) {
+    if (balance.balanceKes < providerCostKes) {
       if (!order.providerAlertSentAt) {
         order.providerAlertSentAt = new Date();
         await order.save();
-        sendProviderAlertInBackground(`Growzia provider top-up needed: ${order.providerCode} balance is KES ${balance.balanceKes.toFixed(2)}. Order ${String(order._id)} is queued.`);
+        sendProviderAlertInBackground(`Growzia provider top-up needed: ${order.providerCode} balance KES ${balance.balanceKes.toFixed(2)} is below KES ${providerCostKes.toFixed(2)} required for order ${String(order._id)}. Order is queued.`);
       }
       return order;
+    }
+    if (balance.balanceKes < env.PROVIDER_LOW_BALANCE_THRESHOLD_KES && !order.providerAlertSentAt) {
+      order.providerAlertSentAt = new Date();
+      await order.save();
+      sendProviderAlertInBackground(`Growzia provider balance is low: ${order.providerCode} has KES ${balance.balanceKes.toFixed(2)} remaining. Order ${String(order._id)} was accepted.`);
     }
   }
   const result = await client.placeOrder(order.providerServiceId, order.link, order.quantity);
@@ -117,11 +125,7 @@ export async function placeOrder(
   const costKes = quantityCostKes(service.sellKesPer1000, qty);
   if (costKes <= 0) throw badRequest("Computed order cost is invalid");
 
-  const debited = await User.findOneAndUpdate(
-    { _id: userObjectId, isBanned: false, balanceKes: { $gte: costKes } },
-    { $inc: { balanceKes: -costKes } },
-    { new: true },
-  ).exec();
+  const debited = await debitUserBalanceIfSufficient(userObjectId, costKes);
 
   if (!debited) {
     const exists = await User.findById(userObjectId).select("isBanned balanceKes").lean().exec();
@@ -196,6 +200,46 @@ export async function processPendingOrders(limit = 25): Promise<number> {
     }
   }
   return processed;
+}
+
+export async function initiatePendingOrder(orderId: string): Promise<OrderDoc> {
+  const order = await Order.findById(toObjectId(orderId, "order id"))
+    .select("+providerCode +providerServiceId +providerOrderId")
+    .exec();
+  if (!order) throw notFound("Order not found");
+  if (order.status !== "pending" || order.providerOrderId) throw badRequest("Only pending provider orders can be initiated");
+  return submitPendingOrder(order);
+}
+
+export async function inspectPendingOrder(orderId: string) {
+  const order = await Order.findById(toObjectId(orderId, "order id"))
+    .select("+providerCode +providerServiceId +providerOrderId")
+    .exec();
+  if (!order) throw notFound("Order not found");
+  const client = clientFor(order.providerCode);
+  const service = await ServiceCatalog.findById(order.serviceCatalogId).select("+baseKesPer1000").lean().exec();
+  if (!service) throw serviceUnavailable("Service pricing is unavailable");
+  const providerEndpoint = order.providerCode === "cheapgains" ? env.CHEAPGAINS_API_URL : env.BWM_API_URL;
+  const expectedProviderCostKes = quantityCostKes(Number(service.baseKesPer1000), order.quantity);
+  let providerBalanceKes: number | null = null;
+  let providerCheckError = "";
+  if (client.getBalanceKes) {
+    try { providerBalanceKes = (await client.getBalanceKes()).balanceKes; }
+    catch (error) { providerCheckError = errorMessage(error); }
+  }
+  return {
+    orderId: String(order._id),
+    targetUrl: order.link,
+    providerCode: order.providerCode,
+    providerEndpoint,
+    providerServiceId: order.providerServiceId,
+    expectedProviderCostKes,
+    providerBalanceKes,
+    providerCheckError,
+    canInitiate: order.status === "pending" && !order.providerOrderId && providerBalanceKes !== null && providerBalanceKes >= expectedProviderCostKes,
+    status: order.status,
+    providerOrderId: order.providerOrderId ?? null,
+  };
 }
 
 export async function refreshOrderStatus(orderId: string): Promise<OrderDoc> {
