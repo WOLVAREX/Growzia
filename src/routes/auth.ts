@@ -23,6 +23,7 @@ const loginSchema = z.object({
 });
 
 const googleCallback = () => env.GOOGLE_CALLBACK_URL || `${env.FRONTEND_ORIGIN.split(",")[0].replace(/\/$/, "")}/api/auth/google/callback`;
+const googleExchanges = new Map<string, { token: string; expiresAt: number }>();
 
 function publicUser(user: UserDoc): Record<string, unknown> {
   return {
@@ -78,7 +79,17 @@ authRouter.get("/google/callback", asyncHandler(async (req, res) => {
   if (user.isBanned) throw unauthorized("This account is suspended");
   const token = signAuthToken({ sub: String(user._id), email: user.email, role: user.isAdmin ? "admin" : "user" });
   const frontend = env.FRONTEND_ORIGIN.split(",")[0].replace(/\/$/, "");
-  res.redirect(`${frontend}/dashboard?google_token=${encodeURIComponent(token)}`);
+  const exchangeCode = randomBytes(32).toString("hex");
+  googleExchanges.set(exchangeCode, { token, expiresAt: Date.now() + 60_000 });
+  res.redirect(`${frontend}/dashboard?google_code=${encodeURIComponent(exchangeCode)}`);
+}));
+
+authRouter.post("/google/exchange", asyncHandler(async (req, res) => {
+  const code = z.object({ code: z.string().trim().min(1).max(128) }).parse(req.body).code;
+  const exchange = googleExchanges.get(code);
+  googleExchanges.delete(code);
+  if (!exchange || exchange.expiresAt < Date.now()) throw unauthorized("Google sign-in session expired");
+  res.json({ token: exchange.token });
 }));
 
 const loginRateLimit = rateLimit({ windowMs: 60000, max: 10, keyPrefix: "user-login" });

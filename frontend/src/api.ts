@@ -10,6 +10,7 @@ export const api = {
   login: (body:object) => request<{token:string;user:User}>('/auth/login',{method:'POST',body:JSON.stringify(body)}),
   register: (body:object) => request<{token:string;user:User}>('/auth/register',{method:'POST',body:JSON.stringify(body)}),
   me: () => request<{user:User}>('/auth/me'),
+  exchangeGoogle: (code:string) => request<{token:string}>('/auth/google/exchange',{method:'POST',body:JSON.stringify({code})}),
   services: (q='',category='') => request<{services:Service[];count:number;currency:{code:string;symbol:string}}>('/boost/services?'+new URLSearchParams({q,category})),
   categories: () => request<{categories:string[]}>('/boost/categories'),
   orders: () => request<{orders:Order[];stats:Record<string,number>}>('/boost/orders'),
@@ -34,4 +35,9 @@ export const api = {
   initializeCardPayment: (amountKes:number) => request<{authorizationUrl:string;accessCode:string;reference:string}>('/payments/paystack/initialize',{method:'POST',body:JSON.stringify({amountKes})}),
   initializeMpesaPayment: (amountKes:number,phone:string) => request<{reference:string;status:string;displayText:string}>('/payments/mpesa/initialize',{method:'POST',body:JSON.stringify({amountKes,phone})}),
   verifyPayment: (reference:string) => request<any>('/payments/paystack/verify',{method:'POST',body:JSON.stringify({reference})}),
+  paymentHistory: () => request<any>('/payments/history'),
+  providerAlerts: () => request<any>('/admin/settings/provider-alerts'),
+  setProviderAlerts: (numbers:string[],senderId:string) => request<any>('/admin/settings/provider-alerts',{method:'POST',body:JSON.stringify({numbers,senderId})}),
+  processingWindow: () => request<any>('/admin/settings/processing-window'),
+  setProcessingWindow: (hours:number) => request<any>('/admin/settings/processing-window',{method:'POST',body:JSON.stringify({hours})}),
 };

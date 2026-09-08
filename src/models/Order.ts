@@ -32,6 +32,9 @@ export interface OrderDoc extends Document {
   remains: number | null;
   failureReason: string | null;
   lastStatusCheckAt: Date | null;
+  processingAfter: Date | null;
+  providerAttemptedAt: Date | null;
+  providerAlertSentAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +59,9 @@ const orderSchema = new Schema<OrderDoc>(
     remains: { type: Number, default: null },
     failureReason: { type: String, default: null },
     lastStatusCheckAt: { type: Date, default: null },
+    processingAfter: { type: Date, default: null },
+    providerAttemptedAt: { type: Date, default: null },
+    providerAlertSentAt: { type: Date, default: null },
   },
   { timestamps: true, collection: "orders" },
 );

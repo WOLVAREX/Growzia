@@ -4,7 +4,7 @@ import { Order, type OrderStatus } from "../../models/Order";
 import { ServiceCatalog } from "../../models/ServiceCatalog";
 import { User } from "../../models/User";
 import { getCatalogMeta } from "../../services/catalogSync";
-import { getMaintenanceMode, getMarginPercent } from "../../services/settings";
+import { getMaintenanceMode, getMarginPercent, getOrderProcessingHours, getProviderAlertNumbers } from "../../services/settings";
 
 export const adminDashboardRouter = Router();
 
@@ -14,7 +14,7 @@ adminDashboardRouter.get(
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const [totalUsers, bannedUsers, totalOrders, ordersToday, revenue, revenueToday, grouped, catalogCount, maintenanceMode, marginPercent] =
+    const [totalUsers, bannedUsers, totalOrders, ordersToday, revenue, revenueToday, grouped, catalogCount, maintenanceMode, marginPercent, queuedOrders, alertNumbers, orderProcessingHours] =
       await Promise.all([
         User.countDocuments({}).exec(),
         User.countDocuments({ isBanned: true }).exec(),
@@ -34,6 +34,9 @@ adminDashboardRouter.get(
         ServiceCatalog.countDocuments({}).exec(),
         getMaintenanceMode(),
         getMarginPercent(),
+        Order.countDocuments({ status: "pending", providerOrderId: null }).exec(),
+        getProviderAlertNumbers(),
+        getOrderProcessingHours(),
       ]);
 
     const ordersByStatus: Record<string, number> = {
@@ -58,6 +61,9 @@ adminDashboardRouter.get(
       catalogMeta: getCatalogMeta(),
       maintenanceMode,
       marginPercent,
+      queuedOrders,
+      providerAlertNumbers: alertNumbers.length,
+      orderProcessingHours,
     });
   }),
 );

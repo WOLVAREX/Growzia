@@ -29,6 +29,7 @@ export interface ProviderClient {
   fetchServices(): Promise<RawProviderService[]>;
   placeOrder(serviceId: string | number, link: string, quantity: number): Promise<ProviderOrderResult>;
   getOrderStatus(providerOrderId: string): Promise<ProviderStatusResult>;
+  getBalanceKes?(): Promise<{ balanceKes: number; currency: string }>;
 }
 
 export function toFiniteNumber(value: unknown, fallback = 0): number {

@@ -112,6 +112,10 @@ export const cheapGainsClient: ProviderClient = {
     if (data.charge !== undefined) result.charge = toFiniteNumber(data.charge, 0);
     return result;
   },
+
+  async getBalanceKes() {
+    return fetchCheapGainsBalanceKes();
+  },
 };
 
 export async function fetchCheapGainsBalanceKes(): Promise<{ balanceKes: number; currency: string }> {

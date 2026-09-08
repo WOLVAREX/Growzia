@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { env } from "../lib/env";
 import { badRequest, notFound, serviceUnavailable } from "../lib/httpError";
 import { errorMessage, logger } from "../lib/logger";
 import { Order, type OrderDoc, type OrderStatus } from "../models/Order";
@@ -9,6 +10,8 @@ import { bwmClient } from "./providers/bwm";
 import { cheapGainsClient } from "./providers/cheapgains";
 import type { ProviderClient, ProviderCode } from "./providers/types";
 import { isTerminalStatus, normalizeBoostStatus } from "./statusNormalizer";
+import { getOrderProcessingHours } from "./settings";
+import { sendProviderAlertInBackground } from "./sms";
 
 const clients: Record<ProviderCode, ProviderClient> = {
   bwm: bwmClient,
@@ -41,6 +44,8 @@ export interface PublicOrder {
   remains: number | null;
   createdAt: string;
   updatedAt: string;
+  processingAfter: string | null;
+  processingMessage: string | null;
 }
 
 export function toPublicOrder(order: OrderDoc): PublicOrder {
@@ -59,7 +64,39 @@ export function toPublicOrder(order: OrderDoc): PublicOrder {
     remains: order.remains,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
+    processingAfter: order.processingAfter?.toISOString() ?? null,
+    processingMessage: order.processingAfter && !order.providerOrderId
+      ? "Your order is queued and will be processed within the configured provider window."
+      : null,
   };
+}
+
+function isLowBalanceError(error: unknown): boolean {
+  const text = errorMessage(error).toLowerCase();
+  return ["insufficient", "low balance", "not enough", "fund", "credit", "balance"].some((term) => text.includes(term));
+}
+
+async function submitPendingOrder(order: OrderDoc): Promise<OrderDoc> {
+  const client = clientFor(order.providerCode);
+  order.providerAttemptedAt = new Date();
+  await order.save();
+  if (client.getBalanceKes) {
+    const balance = await client.getBalanceKes();
+    if (balance.balanceKes < env.PROVIDER_LOW_BALANCE_THRESHOLD_KES) {
+      if (!order.providerAlertSentAt) {
+        order.providerAlertSentAt = new Date();
+        await order.save();
+        sendProviderAlertInBackground(`Growzia provider top-up needed: ${order.providerCode} balance is KES ${balance.balanceKes.toFixed(2)}. Order ${String(order._id)} is queued.`);
+      }
+      return order;
+    }
+  }
+  const result = await client.placeOrder(order.providerServiceId, order.link, order.quantity);
+  order.providerOrderId = result.providerOrderId;
+  order.status = normalizeBoostStatus(result.status, "pending");
+  order.processingAfter = null;
+  await order.save();
+  return order;
 }
 
 export async function placeOrder(
@@ -116,14 +153,21 @@ export async function placeOrder(
   });
 
   try {
-    const client = clientFor(service.providerCode);
-    const result = await client.placeOrder(service.providerServiceId, link, qty);
-    order.providerOrderId = result.providerOrderId;
-    order.status = normalizeBoostStatus(result.status, "pending");
+    const hours = await getOrderProcessingHours();
+    order.processingAfter = new Date(Date.now() + hours * 60 * 60 * 1000);
     await order.save();
-    return order;
+    return await submitPendingOrder(order);
   } catch (error: unknown) {
     const reason = errorMessage(error);
+    if (isLowBalanceError(error)) {
+      order.processingAfter = new Date(Date.now() + (await getOrderProcessingHours()) * 60 * 60 * 1000);
+      if (!order.providerAlertSentAt) {
+        order.providerAlertSentAt = new Date();
+        sendProviderAlertInBackground(`Growzia provider top-up needed: ${order.providerCode} could not accept order ${String(order._id)} due to low balance.`);
+      }
+      await order.save();
+      return order;
+    }
     await User.updateOne({ _id: userObjectId }, { $inc: { balanceKes: costKes } }).exec();
     order.status = "failed";
     order.failureReason = "Order could not be processed";
@@ -131,6 +175,33 @@ export async function placeOrder(
     logger.error(`Order ${String(order._id)} failed and was refunded: ${reason}`);
     throw serviceUnavailable("This order could not be processed. Your balance has been refunded.");
   }
+}
+
+export async function processPendingOrders(limit = 25): Promise<number> {
+  const orders = await Order.find({ status: "pending", providerOrderId: null, processingAfter: { $lte: new Date() } })
+    .select("+providerCode +providerServiceId +providerOrderId")
+    .sort({ createdAt: 1 }).limit(Math.max(1, limit)).exec();
+  let processed = 0;
+  for (const order of orders) {
+    try {
+      await submitPendingOrder(order);
+      if (order.providerOrderId) processed += 1;
+    } catch (error: unknown) {
+      if (isLowBalanceError(error)) {
+        if (!order.providerAlertSentAt) {
+          order.providerAlertSentAt = new Date();
+          sendProviderAlertInBackground(`Growzia provider top-up needed: ${order.providerCode} could not accept queued order ${String(order._id)}.`);
+        }
+        await order.save();
+      } else {
+        await User.updateOne({ _id: order.userId }, { $inc: { balanceKes: order.costKes } }).exec();
+        order.status = "failed";
+        order.failureReason = "Order could not be processed";
+        await order.save();
+      }
+    }
+  }
+  return processed;
 }
 
 export async function refreshOrderStatus(orderId: string): Promise<OrderDoc> {

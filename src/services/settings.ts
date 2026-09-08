@@ -6,6 +6,9 @@ export const SETTING_KEYS = {
   marginPercent: "marginPercent",
   disabledServices: "disabledServices",
   disabledProviderServices: "disabledProviderServices",
+  orderProcessingHours: "orderProcessingHours",
+  providerAlertNumbers: "providerAlertNumbers",
+  providerAlertSenderId: "providerAlertSenderId",
 } as const;
 
 interface CacheEntry {
@@ -79,4 +82,38 @@ export async function setDisabledProviderServices(keys: string[]): Promise<strin
   const unique = Array.from(new Set(keys.map((key) => String(key).trim()).filter((key) => key !== "")));
   await writeSetting(SETTING_KEYS.disabledProviderServices, unique);
   return unique;
+}
+
+export async function getOrderProcessingHours(): Promise<number> {
+  const value = await readSetting(SETTING_KEYS.orderProcessingHours);
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 24;
+}
+
+export async function setOrderProcessingHours(hours: number): Promise<number> {
+  const value = Math.min(168, Math.max(0, Number(hours)));
+  await writeSetting(SETTING_KEYS.orderProcessingHours, value);
+  return value;
+}
+
+export async function getProviderAlertNumbers(): Promise<string[]> {
+  const value = await readSetting(SETTING_KEYS.providerAlertNumbers);
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+export async function setProviderAlertNumbers(numbers: string[]): Promise<string[]> {
+  const unique = Array.from(new Set(numbers.map((number) => String(number).trim()).filter(Boolean)));
+  await writeSetting(SETTING_KEYS.providerAlertNumbers, unique);
+  return unique;
+}
+
+export async function getProviderAlertSenderId(): Promise<string> {
+  const value = await readSetting(SETTING_KEYS.providerAlertSenderId);
+  return typeof value === "string" && value.trim() ? value.trim() : env.NENA_SENDER_ID;
+}
+
+export async function setProviderAlertSenderId(senderId: string): Promise<string> {
+  const value = senderId.trim();
+  await writeSetting(SETTING_KEYS.providerAlertSenderId, value);
+  return value;
 }

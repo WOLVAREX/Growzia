@@ -48,6 +48,10 @@ const envSchema = z.object({
   ORDER_STATUS_SYNC_INTERVAL_MINUTES: numberFromString(10),
   PROVIDER_TIMEOUT_MS: numberFromString(20000),
   CATALOG_CACHE_TTL_SECONDS: numberFromString(300),
+  NENA_API_KEY: z.string().optional(),
+  NENA_API_URL: z.string().url("NENA_API_URL must be a valid URL").default("https://nenasolutions.co.ke/v1/api/sms/send"),
+  NENA_SENDER_ID: z.string().min(1).default("NENA"),
+  PROVIDER_LOW_BALANCE_THRESHOLD_KES: numberFromString(500),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

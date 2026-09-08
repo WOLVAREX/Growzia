@@ -1,6 +1,6 @@
 import { env } from "../lib/env";
 import { errorMessage, logger } from "../lib/logger";
-import { refreshNonTerminalOrders } from "../services/orders";
+import { processPendingOrders, refreshNonTerminalOrders } from "../services/orders";
 
 let timer: NodeJS.Timeout | null = null;
 let running = false;
@@ -10,6 +10,8 @@ async function runOnce(): Promise<void> {
   running = true;
   try {
     const refreshed = await refreshNonTerminalOrders(50);
+    const submitted = await processPendingOrders(25);
+    if (submitted > 0) logger.info(`Submitted ${submitted} queued order(s)`);
     if (refreshed > 0) logger.info(`Refreshed ${refreshed} open order(s)`);
   } catch (error: unknown) {
     logger.warn(`Order status refresh skipped: ${errorMessage(error)}`);
