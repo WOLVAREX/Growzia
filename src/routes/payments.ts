@@ -15,7 +15,7 @@ paymentsRouter.get("/history", asyncHandler(async (req, res) => {
   const user = req.user;
   if (!user) throw unauthorized("Authentication required");
   const [payments, orders] = await Promise.all([
-    Payment.find({ userId: user._id }).sort({ createdAt: -1 }).limit(100).lean().exec(),
+    Payment.find({ userId: user._id, status: "success" }).sort({ createdAt: -1 }).limit(100).lean().exec(),
     Order.find({ userId: user._id }).sort({ createdAt: -1 }).limit(100).lean().exec(),
   ]);
   res.json({

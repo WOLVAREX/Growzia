@@ -18,6 +18,7 @@ export const api = {
   adminStats: () => request<any>('/admin/stats'),
   adminUsers: () => request<any>('/admin/users?limit=100'),
   adminOrders: () => request<any>('/admin/orders?limit=100'),
+  adminTransactions: (query='') => request<any>(`/admin/transactions${query ? `?${query}` : ''}`),
   rawCatalog: () => request<any>('/admin/catalog/raw?limit=5000'),
   updateCatalogPrice: (canonicalKey:string,sellKesPer1000:number) => request<any>(`/admin/catalog/${encodeURIComponent(canonicalKey)}/price`,{method:'PATCH',body:JSON.stringify({sellKesPer1000})}),
   sync: () => request<any>('/admin/catalog/sync',{method:'POST'}),
