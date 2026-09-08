@@ -38,6 +38,7 @@ export const api = {
   paymentHistory: () => request<any>('/payments/history'),
   providerAlerts: () => request<any>('/admin/settings/provider-alerts'),
   setProviderAlerts: (numbers:string[],senderId:string) => request<any>('/admin/settings/provider-alerts',{method:'POST',body:JSON.stringify({numbers,senderId})}),
+  testProviderAlert: (recipient:string,senderId:string) => request<any>('/admin/settings/provider-alerts/test',{method:'POST',body:JSON.stringify({recipient,senderId})}),
   processingWindow: () => request<any>('/admin/settings/processing-window'),
   setProcessingWindow: (hours:number) => request<any>('/admin/settings/processing-window',{method:'POST',body:JSON.stringify({hours})}),
 };

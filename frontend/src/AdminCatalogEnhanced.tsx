@@ -28,8 +28,8 @@ export default function AdminCatalogEnhanced({ rows, refresh }: { rows: CatalogR
     const next = new Set(disabled);
     next.has(id) ? next.delete(id) : next.add(id);
     setSaving(id); setMessage('');
-    try { const result = await api.setProviderSettings(Array.from(next)); setDisabled(new Set(result.providerServices || next)); setMessage(`${disabled.has(id) ? 'Provider service enabled' : 'Provider service disabled'}. Catalog refresh started.`); refresh(); }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update provider service.'); }
+    try { const result = await api.setProviderSettings(Array.from(next)); setDisabled(new Set(result.providerServices || next)); const text = `${disabled.has(id) ? 'Provider service enabled' : 'Provider service disabled'}. Catalog refresh started.`; setMessage(text); window.alert(text); refresh(); }
+    catch (error) { const text = error instanceof Error ? error.message : 'Could not update provider service.'; setMessage(text); window.alert(text); }
     finally { setSaving(null); }
   };
 
@@ -37,8 +37,8 @@ export default function AdminCatalogEnhanced({ rows, refresh }: { rows: CatalogR
     const value = Number(prices[row.canonicalKey] ?? row.winner?.sellKesPer1000);
     if (!Number.isFinite(value) || value <= 0) { setMessage('Enter a valid Growzia price.'); return; }
     setSaving(row.canonicalKey); setMessage('');
-    try { await api.updateCatalogPrice(row.canonicalKey, value); setMessage('Price updated.'); refresh(); }
-    catch (error) { setMessage(error instanceof Error ? error.message : 'Could not update price.'); }
+    try { await api.updateCatalogPrice(row.canonicalKey, value); setMessage('Price updated.'); window.alert('Price updated successfully.'); refresh(); }
+    catch (error) { const text = error instanceof Error ? error.message : 'Could not update price.'; setMessage(text); window.alert(text); }
     finally { setSaving(null); }
   };
 

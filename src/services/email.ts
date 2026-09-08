@@ -18,5 +18,5 @@ export function sendEmailInBackground(input: EmailInput): void {
 }
 
 export function emailLayout(title: string, body: string): string {
-  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#171717"><h2>${title}</h2>${body}<p style="color:#777;font-size:12px">Growzia</p></div>`;
+  return `<!doctype html><html><body style="margin:0;background:#f4f4f1;font-family:Arial,Helvetica,sans-serif;color:#171717"><div style="max-width:640px;margin:32px auto;padding:0 16px"><div style="background:#111;color:#fff;border-radius:16px 16px 0 0;padding:24px 28px"><div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#b9b9b3">GROWZIA</div><h1 style="margin:12px 0 0;font-size:26px;line-height:1.2">${title}</h1></div><div style="background:#fff;border:1px solid #e1e1db;border-top:0;border-radius:0 0 16px 16px;padding:28px;line-height:1.7;font-size:15px">${body}<div style="margin-top:28px;padding-top:18px;border-top:1px solid #ecece7;color:#777;font-size:12px">Grow your social presence. Simply.</div></div></div></body></html>`;
 }

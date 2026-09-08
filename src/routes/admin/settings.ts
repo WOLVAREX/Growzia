@@ -19,6 +19,7 @@ import {
   getProviderAlertSenderId,
   setProviderAlertSenderId,
 } from "../../services/settings";
+import { sendNenaSms } from "../../services/sms";
 
 const maintenanceSchema = z.object({ enabled: z.coerce.boolean() });
 const marginSchema = z.object({ marginPercent: z.coerce.number().min(0).max(1000) });
@@ -61,6 +62,12 @@ adminSettingsRouter.get("/provider-alerts", asyncHandler(async (_req, res) => {
 adminSettingsRouter.post("/provider-alerts", asyncHandler(async (req, res) => {
   const body = z.object({ numbers: z.array(z.string().trim().min(7)).max(20), senderId: z.string().trim().min(1).max(20) }).parse(req.body);
   res.json({ numbers: await setProviderAlertNumbers(body.numbers), senderId: await setProviderAlertSenderId(body.senderId), configured: Boolean(process.env.NENA_API_KEY) });
+}));
+
+adminSettingsRouter.post("/provider-alerts/test", asyncHandler(async (req, res) => {
+  const body = z.object({ recipient: z.string().trim().min(7).max(32), senderId: z.string().trim().min(1).max(20), message: z.string().trim().min(1).max(320).default("Growzia SMS test: provider alerts are configured successfully.") }).parse(req.body);
+  await sendNenaSms(body.recipient, body.senderId, body.message);
+  res.json({ sent: true, recipient: body.recipient, senderId: body.senderId });
 }));
 
 adminSettingsRouter.get("/processing-window", asyncHandler(async (_req, res) => {
