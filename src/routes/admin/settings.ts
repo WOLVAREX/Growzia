@@ -21,7 +21,7 @@ import {
   getDisabledPlatforms,
   setDisabledPlatforms,
 } from "../../services/settings";
-import { sendNenaSms } from "../../services/sms";
+import { listNenaSenderIds, sendNenaSms } from "../../services/sms";
 
 const maintenanceSchema = z.object({ enabled: z.coerce.boolean() });
 const marginSchema = z.object({ marginPercent: z.coerce.number().min(0).max(1000) });
@@ -58,7 +58,8 @@ adminSettingsRouter.post("/disabled-provider-services", asyncHandler(async (req,
 }));
 
 adminSettingsRouter.get("/provider-alerts", asyncHandler(async (_req, res) => {
-  res.json({ numbers: await getProviderAlertNumbers(), senderId: await getProviderAlertSenderId(), configured: Boolean(process.env.NENA_API_KEY) });
+  const senderIds = (await listNenaSenderIds()).filter((sender) => sender.isActive);
+  res.json({ numbers: await getProviderAlertNumbers(), senderId: await getProviderAlertSenderId(), senderIds, configured: Boolean(process.env.NENA_API_KEY) });
 }));
 
 adminSettingsRouter.post("/provider-alerts", asyncHandler(async (req, res) => {
