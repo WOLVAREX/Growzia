@@ -4,14 +4,23 @@ import { asyncHandler } from "../../lib/asyncHandler";
 import { errorMessage } from "../../lib/logger";
 import { ProviderRawService } from "../../models/ProviderRawService";
 import { ServiceCatalog } from "../../models/ServiceCatalog";
+import { Order } from "../../models/Order";
 import { SyncLog } from "../../models/SyncLog";
 import { getCatalogMeta, syncCatalog } from "../../services/catalogSync";
+import { getDisabledProviderServices } from "../../services/settings";
 
 const rawQuerySchema = z.object({
   q: z.string().trim().max(120).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(5000).default(200),
 });
+
+const numberValue = (value: unknown, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const rounded = (value: number) => Math.round(value * 100) / 100;
 
 export const adminCatalogRouter = Router();
 
@@ -89,6 +98,7 @@ adminCatalogRouter.get(
       .lean()
       .exec();
     const winnerByKey = new Map(winners.map((doc) => [doc.canonicalKey, doc]));
+    const disabledProviderServices = new Set(await getDisabledProviderServices());
 
     const grouped = new Map<
       string,
@@ -96,8 +106,8 @@ adminCatalogRouter.get(
         canonicalKey: string;
         platformId: string;
         serviceType: string;
-        bwm: { name: string; providerServiceId: string; baseKesPer1000: number; rawRate: number; rawCurrency: string; min: number; max: number } | null;
-        cheapgains: { name: string; providerServiceId: string; baseKesPer1000: number; rawRate: number; rawCurrency: string; min: number; max: number } | null;
+        bwm: ({ name: string; providerServiceId: string; baseKesPer1000: number; rawRate: number; rawCurrency: string; min: number; max: number; disabled: boolean } | null);
+        cheapgains: ({ name: string; providerServiceId: string; baseKesPer1000: number; rawRate: number; rawCurrency: string; min: number; max: number; disabled: boolean } | null);
       }
     >();
 
@@ -111,13 +121,14 @@ adminCatalogRouter.get(
         cheapgains: null,
       };
       const entry = {
-        name: doc.name,
-        providerServiceId: doc.providerServiceId,
-        baseKesPer1000: doc.baseKesPer1000,
-        rawRate: doc.rawRate,
-        rawCurrency: doc.rawCurrency,
-        min: doc.min,
-        max: doc.max,
+        name: doc.name || doc.canonicalKey,
+        providerServiceId: doc.providerServiceId || "",
+        baseKesPer1000: numberValue(doc.baseKesPer1000),
+        rawRate: numberValue(doc.rawRate),
+        rawCurrency: doc.rawCurrency || "KES",
+        min: numberValue(doc.min),
+        max: numberValue(doc.max),
+        disabled: disabledProviderServices.has(`${doc.providerCode}:${doc.canonicalKey}`),
       };
       if (doc.providerCode === "bwm") {
         if (!existing.bwm || entry.baseKesPer1000 < existing.bwm.baseKesPer1000) existing.bwm = entry;
@@ -143,7 +154,11 @@ adminCatalogRouter.get(
                 providerServiceId: winner.providerServiceId,
                 baseKesPer1000: winner.baseKesPer1000,
                 sellKesPer1000: winner.sellKesPer1000,
-                name: winner.name,
+                commissionKesPer1000: rounded(numberValue(winner.sellKesPer1000) - numberValue(winner.baseKesPer1000)),
+                commissionPercent: numberValue(winner.baseKesPer1000) > 0
+                  ? rounded(((numberValue(winner.sellKesPer1000) - numberValue(winner.baseKesPer1000)) / numberValue(winner.baseKesPer1000)) * 100)
+                  : 0,
+                name: winner.name || row.canonicalKey,
               }
             : null,
         };
@@ -155,6 +170,60 @@ adminCatalogRouter.get(
       total: rows.length,
       syncedAt: latest.syncedAt,
       rows: rows.slice(skip, skip + query.limit),
+    });
+  }),
+);
+
+adminCatalogRouter.get(
+  "/profitability",
+  asyncHandler(async (_req, res) => {
+    const [catalog, orders] = await Promise.all([
+      ServiceCatalog.find({ isDisabled: false }).lean().exec(),
+      Order.find({}).lean().exec(),
+    ]);
+    const catalogTotals = { services: catalog.length, customerRevenuePer1000: 0, providerCostPer1000: 0, grossBenefitPer1000: 0 };
+    const catalogById = new Map(catalog.map((service) => [String(service._id), service]));
+    const providerTotals: Record<string, { orders: number; providerCostKes: number }> = {
+      bwm: { orders: 0, providerCostKes: 0 },
+      cheapgains: { orders: 0, providerCostKes: 0 },
+    };
+    for (const service of catalog) {
+      catalogTotals.customerRevenuePer1000 += numberValue(service.sellKesPer1000);
+      catalogTotals.providerCostPer1000 += numberValue(service.baseKesPer1000);
+    }
+    catalogTotals.grossBenefitPer1000 = catalogTotals.customerRevenuePer1000 - catalogTotals.providerCostPer1000;
+
+    let customerRevenueKes = 0;
+    let providerCostKes = 0;
+    for (const order of orders) {
+      const service = catalogById.get(String(order.serviceCatalogId));
+      const base = numberValue(service?.baseKesPer1000);
+      const quantity = numberValue(order.quantity);
+      const revenue = numberValue(order.costKes);
+      const cost = base * quantity / 1000;
+      customerRevenueKes += revenue;
+      providerCostKes += cost;
+      const provider = providerTotals[order.providerCode] ?? (providerTotals[order.providerCode] = { orders: 0, providerCostKes: 0 });
+      provider.orders += 1;
+      provider.providerCostKes += cost;
+    }
+    res.json({
+      catalog: {
+        services: catalogTotals.services,
+        customerRevenuePer1000: rounded(catalogTotals.customerRevenuePer1000),
+        providerCostPer1000: rounded(catalogTotals.providerCostPer1000),
+        grossBenefitPer1000: rounded(catalogTotals.grossBenefitPer1000),
+      },
+      orders: {
+        count: orders.length,
+        customerRevenueKes: rounded(customerRevenueKes),
+        providerCostKes: rounded(providerCostKes),
+        grossBenefitKes: rounded(customerRevenueKes - providerCostKes),
+      },
+      providers: Object.fromEntries(Object.entries(providerTotals).map(([providerCode, values]) => [providerCode, {
+        orders: values.orders,
+        providerCostKes: rounded(values.providerCostKes),
+      }])),
     });
   }),
 );
