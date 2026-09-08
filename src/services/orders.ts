@@ -44,8 +44,6 @@ export interface PublicOrder {
   remains: number | null;
   createdAt: string;
   updatedAt: string;
-  processingAfter: string | null;
-  processingMessage: string | null;
 }
 
 export function toPublicOrder(order: OrderDoc): PublicOrder {
@@ -64,10 +62,6 @@ export function toPublicOrder(order: OrderDoc): PublicOrder {
     remains: order.remains,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
-    processingAfter: order.processingAfter?.toISOString() ?? null,
-    processingMessage: order.processingAfter && !order.providerOrderId
-      ? "Your order is queued and will be processed within the configured provider window."
-      : null,
   };
 }
 
