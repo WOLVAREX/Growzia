@@ -9,7 +9,8 @@ const numberFromString = (fallback: number) =>
     .refine((value) => Number.isFinite(value), { message: "must be a valid number" });
 
 const envSchema = z.object({
-  MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+  DATABASE_URL: z.string().url("DATABASE_URL is required"),
+  MONGODB_URI: z.string().optional(),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   PORT: numberFromString(5000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

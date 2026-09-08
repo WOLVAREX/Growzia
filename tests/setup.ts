@@ -1,4 +1,5 @@
 process.env.MONGODB_URI = "mongodb://127.0.0.1:27017/growzia-test";
+process.env.DATABASE_URL = "postgresql://127.0.0.1/growzia-test";
 process.env.JWT_SECRET = "test-secret-value-that-is-long-enough";
 process.env.PORT = "5050";
 process.env.NODE_ENV = "test";

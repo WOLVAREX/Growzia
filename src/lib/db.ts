@@ -1,30 +1,15 @@
-import mongoose from "mongoose";
-import { env } from "./env";
+import { ensurePgSchema, pool } from "./pgStore";
 import { logger } from "./logger";
 
-let connecting: Promise<typeof mongoose> | null = null;
+let connecting: Promise<typeof pool> | null = null;
 
-export async function connectDb(): Promise<typeof mongoose> {
-  if (mongoose.connection.readyState === 1) return mongoose;
+export async function connectDb(): Promise<typeof pool> {
   if (connecting) return connecting;
-
-  mongoose.set("strictQuery", true);
-  connecting = mongoose.connect(env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 15000,
-    maxPoolSize: 10,
-  });
-
-  try {
-    const conn = await connecting;
-    logger.info(`MongoDB connected to database "${conn.connection.name}"`);
-    return conn;
-  } finally {
-    connecting = null;
-  }
+  connecting = ensurePgSchema().then(async () => { await pool.query("SELECT 1"); logger.info("PostgreSQL connected"); return pool; }).finally(() => { connecting = null; });
+  return connecting;
 }
 
 export async function disconnectDb(): Promise<void> {
-  if (mongoose.connection.readyState === 0) return;
-  await mongoose.disconnect();
-  logger.info("MongoDB disconnected");
+  await pool.end();
+  logger.info("PostgreSQL disconnected");
 }

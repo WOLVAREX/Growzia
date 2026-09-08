@@ -1,5 +1,5 @@
 import { Router } from "express";
-import mongoose from "mongoose";
+import { pool } from "../lib/pgStore";
 import { maintenanceCheck } from "../middleware/maintenanceCheck";
 import { adminRouter } from "./admin";
 import { authRouter } from "./auth";
@@ -14,7 +14,7 @@ export const apiRouter = Router();
 apiRouter.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    database: pool.totalCount > 0 ? "connected" : "disconnected",
     time: new Date().toISOString(),
   });
 });

@@ -1,37 +1,13 @@
-import { Schema, model, type Document, type Model, type Types } from "mongoose";
+import { Types } from "mongoose";
+import { PgModel, type PgRecord } from "../lib/pgStore";
 
-export interface UserDoc extends Document {
-  _id: Types.ObjectId;
-  email: string;
-  username: string;
-  passwordHash: string;
-  balanceKes: number;
-  isBanned: boolean;
-  isAdmin: boolean;
-  apiKeyHash: string | null;
-  apiKeyPrefix: string | null;
-  apiKeyActive: boolean;
-  apiKeyLastUsedAt: Date | null;
-  apiKeyCallCount: number;
-  createdAt: Date;
-  updatedAt: Date;
+export interface UserDoc extends PgRecord {
+  email: string; username: string; passwordHash: string; balanceKes: number; isBanned: boolean; isAdmin: boolean;
+  apiKeyHash: string | null; apiKeyPrefix: string | null; apiKeyActive: boolean; apiKeyLastUsedAt: Date | null; apiKeyCallCount: number;
 }
 
-const userSchema = new Schema<UserDoc>(
-  {
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    username: { type: String, required: true, unique: true, trim: true },
-    passwordHash: { type: String, required: true },
-    balanceKes: { type: Number, required: true, default: 0, min: 0 },
-    isBanned: { type: Boolean, required: true, default: false, index: true },
-    isAdmin: { type: Boolean, required: true, default: false },
-    apiKeyHash: { type: String, default: null, index: true },
-    apiKeyPrefix: { type: String, default: null },
-    apiKeyActive: { type: Boolean, required: true, default: false },
-    apiKeyLastUsedAt: { type: Date, default: null },
-    apiKeyCallCount: { type: Number, required: true, default: 0 },
-  },
-  { timestamps: true, collection: "users" },
-);
+function revive(data: Record<string, unknown>): UserDoc {
+  return { ...data, _id: new Types.ObjectId(String(data._id)), createdAt: new Date(String(data.createdAt)), updatedAt: new Date(String(data.updatedAt)), apiKeyLastUsedAt: data.apiKeyLastUsedAt ? new Date(String(data.apiKeyLastUsedAt)) : null } as UserDoc;
+}
 
-export const User: Model<UserDoc> = model<UserDoc>("User", userSchema);
+export const User = new PgModel<UserDoc>("users", revive);
