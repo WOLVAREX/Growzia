@@ -20,6 +20,7 @@ export const api = {
   adminOrders: () => request<any>('/admin/orders?limit=100'),
   adminTransactions: (query='') => request<any>(`/admin/transactions${query ? `?${query}` : ''}`),
   rawCatalog: () => request<any>('/admin/catalog/raw?limit=5000'),
+  catalogProfitability: () => request<any>('/admin/catalog/profitability'),
   updateCatalogPrice: (canonicalKey:string,sellKesPer1000:number) => request<any>(`/admin/catalog/${encodeURIComponent(canonicalKey)}/price`,{method:'PATCH',body:JSON.stringify({sellKesPer1000})}),
   sync: () => request<any>('/admin/catalog/sync',{method:'POST'}),
   settings: () => Promise.all([request<any>('/admin/settings/maintenance'),request<any>('/admin/settings/margin'),request<any>('/admin/settings/disabled-services')]),
