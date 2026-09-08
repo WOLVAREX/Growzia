@@ -21,3 +21,9 @@
 .theme-dark .services-subnav { background: #191917; border-color: #2c2c29; }
 .theme-dark .services-subnav button { color: #aaa; }
 .theme-dark .services-subnav button:hover, .theme-dark .services-subnav button.active { background: #30302c; color: #fff; }
+.provider-balances { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; max-width: 1400px; margin: 0 auto 14px; padding: 0 48px; }
+.provider-balance-card { padding: 18px 20px; }
+.provider-balance-card h3 { margin: 6px 0 10px; }
+.provider-balance-card strong { display: block; font-size: 24px; }
+.provider-balance-card small { color: #888; display: block; margin-top: 5px; }
+@media(max-width:640px) { .provider-balances { grid-template-columns: 1fr; padding: 0 16px; } }

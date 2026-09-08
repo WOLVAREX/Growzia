@@ -36,6 +36,11 @@ interface BwmStatusData {
   start_count?: string | number;
 }
 
+interface BwmBalanceData {
+  wallet_balance_xd?: string | number;
+  currency?: string;
+}
+
 function extractError(payload: BwmEnvelope<unknown> | null, status: number): string {
   if (payload && payload.error) {
     if (typeof payload.error === "string") return payload.error;
@@ -119,5 +124,10 @@ export const bwmClient: ProviderClient = {
     if (data.remains !== undefined) result.remains = toFiniteNumber(data.remains, 0);
     if (data.start_count !== undefined) result.startCount = toFiniteNumber(data.start_count, 0);
     return result;
+  },
+
+  async getBalanceKes() {
+    const data = await callBwm<BwmBalanceData>("/account/balance", { method: "GET" });
+    return { balanceKes: toFiniteNumber(data.wallet_balance_xd, 0), currency: toTrimmedString(data.currency, "XD") };
   },
 };

@@ -5,6 +5,8 @@ import { ServiceCatalog } from "../../models/ServiceCatalog";
 import { User } from "../../models/User";
 import { getCatalogMeta } from "../../services/catalogSync";
 import { getMaintenanceMode, getMarginPercent, getOrderProcessingHours, getProviderAlertNumbers } from "../../services/settings";
+import { bwmClient } from "../../services/providers/bwm";
+import { cheapGainsClient } from "../../services/providers/cheapgains";
 
 export const adminDashboardRouter = Router();
 
@@ -14,7 +16,7 @@ adminDashboardRouter.get(
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const [totalUsers, bannedUsers, totalOrders, ordersToday, revenue, revenueToday, grouped, catalogCount, maintenanceMode, marginPercent, queuedOrders, alertNumbers, orderProcessingHours] =
+    const [totalUsers, bannedUsers, totalOrders, ordersToday, revenue, revenueToday, grouped, catalogCount, maintenanceMode, marginPercent, queuedOrders, alertNumbers, orderProcessingHours, bwmBalance, cheapgainsBalance] =
       await Promise.all([
         User.countDocuments({}).exec(),
         User.countDocuments({ isBanned: true }).exec(),
@@ -37,6 +39,8 @@ adminDashboardRouter.get(
         Order.countDocuments({ status: "pending", providerOrderId: null }).exec(),
         getProviderAlertNumbers(),
         getOrderProcessingHours(),
+        bwmClient.getBalanceKes ? bwmClient.getBalanceKes().catch(() => null) : Promise.resolve(null),
+        cheapGainsClient.getBalanceKes ? cheapGainsClient.getBalanceKes().catch(() => null) : Promise.resolve(null),
       ]);
 
     const ordersByStatus: Record<string, number> = {
@@ -64,6 +68,10 @@ adminDashboardRouter.get(
       queuedOrders,
       providerAlertNumbers: alertNumbers.length,
       orderProcessingHours,
+      providerBalances: {
+        bwm: bwmBalance ? { amount: bwmBalance.balanceKes, currency: bwmBalance.currency, available: true } : { amount: null, currency: null, available: false },
+        cheapgains: cheapgainsBalance ? { amount: cheapgainsBalance.balanceKes, currency: cheapgainsBalance.currency, available: true } : { amount: null, currency: null, available: false },
+      },
     });
   }),
 );
